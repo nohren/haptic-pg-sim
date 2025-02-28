@@ -4,6 +4,7 @@ Haptic experience with feedback for pg training
 Installation
 - git clone library
 - install the platformio vscode extension
+- open this project as a platformio project
 - click the checkmark at the bottom to build (it should install the required libraries as needed)
 
 Developing
