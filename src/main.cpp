@@ -1,22 +1,88 @@
 #include <Arduino.h>
 #include <SimpleFOC.h>
 
-// put function declarations here:
-// int myFunction(int, int);
+void blinkyLight(void);
+
+//8 is enable, these pin numbers are on the back of the motor driver corresponding to a,b,c
+BLDCDriver3PWM driver = BLDCDriver3PWM(5, 9, 6, 8);
+
+// motor info!
+// GM4108H
+// https://shop.iflight.com/gimbal-motors-cat44/ipower-motor-gm4108h-120t-brushless-gimbal-motor-pro217?srsltid=AfmBOoqxeW2Hb-j6NUhU7VB4WXt1Kw264wGX11YsdpgPQk_aYoP7Nqlo
+// 22 poles, 11 poll pairs
+// Resistance(Ω): 11.1Ω±5%
+// Load Current (A): 1.5A
+
+BLDCMotor motor = BLDCMotor(11);
+
+// instantiate the commander
+// press T followed by number to change motor speed in serial termal during program running
+Commander command = Commander(Serial);
+void doTarget(char* cmd) { command.scalar(&motor.target, cmd); }
+void doLimit(char* cmd) { command.scalar(&motor.voltage_limit, cmd); }
 
 void setup() {
-  // put your setup code here, to run once:
   pinMode(LED_BUILTIN, OUTPUT);
+  // use monitoring with serial 
+  Serial.begin(115200);
+  Serial.println("hello world!");
+  SimpleFOCDebug::enable(&Serial);
+  
+  // // power supply voltage [V] from battery
+  driver.voltage_power_supply = 11.1;
+  // amps = voltage / ohms 
+  // 11.1v battery / 11 ohms = 1amp which is well below 1.5 amps max
+  // 11.1v as max volage is well within range
+  driver.voltage_limit = 11.1;
+
+  if(!driver.init()) {
+    Serial.println("Driver init failed!");
+    return;
+  }
+  motor.linkDriver(&driver);
+
+  // limiting motor movements
+  // limit the voltage to be set to the motor
+  // start very low for high resistance motors
+  // current = voltage / resistance, so try to be well under 1Amp
+
+  //max current 1.3A for this motor
+  //1.3A > 5 / 5.6
+  motor.voltage_limit = 5;   // [V]
+
+   // open loop control config
+  motor.controller = MotionControlType::velocity_openloop;
+
+   // init motor hardware
+  if(!motor.init()){
+    Serial.println("Motor init failed!");
+    return;
+  }
+
+  // set the target velocity [rad/s] 
+  motor.target = 6.28; // one rotation per second
+
+  // add target command T
+  command.add('T', doTarget, "target velocity");
+  command.add('L', doLimit, "voltage limit");
+
+  Serial.println("Motor ready!");
+  Serial.println("Set target velocity [rad/s]");
+  _delay(1000);
 }
 
 void loop() {
+  motor.move();
+
+  // user communication
+  command.run();
+  blinkyLight();
+}
+
+//lets me know arduino is on
+void blinkyLight() {
   digitalWrite(LED_BUILTIN, HIGH);  // turn the LED on (HIGH is the voltage level)
   delay(1000);                      // wait for a second
   digitalWrite(LED_BUILTIN, LOW);   // turn the LED off by making the voltage LOW
-  delay(1000);        
+  delay(1000); 
 }
-
-// put function definitions here:
-// int myFunction(int x, int y) {
-//   return x + y;
-// }
