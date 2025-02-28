@@ -1,8 +1,17 @@
 #include <Arduino.h>
 #include <SimpleFOC.h>
+#include "main.h"
 
-void blinkyLight(void);
+int SAFETY_PIN = 13; //pin safety switch
+SensorState sv; //  allocated stack
 
+
+//------------------------------ENCODER--------------------------
+Encoder encoder = Encoder(2, 3, 500);
+
+
+//----------------------------------MOTOR-----------------------
+//SensorState sensorPointer = &sensorState; 
 //8 is enable, these pin numbers are on the back of the motor driver corresponding to a,b,c
 BLDCDriver3PWM driver = BLDCDriver3PWM(5, 9, 6, 8);
 
@@ -22,12 +31,24 @@ void doTarget(char* cmd) { command.scalar(&motor.target, cmd); }
 void doLimit(char* cmd) { command.scalar(&motor.voltage_limit, cmd); }
 
 void setup() {
-  pinMode(LED_BUILTIN, OUTPUT);
-  // use monitoring with serial 
+  //initialize struct variables
+  sv.motorOn = true;
+  sv.lastButtonState = HIGH;
+  
+  //initialize pins
+  pinMode(SAFETY_PIN, INPUT);
+
+  //initialize serial monitoring
   Serial.begin(115200);
   Serial.println("hello world!");
   SimpleFOCDebug::enable(&Serial);
+
+  //encoder properties
+  encoder.init();
+  // hardware interrupt enable
+  encoder.enableInterrupts(doA, doB);
   
+  //motor properties
   // // power supply voltage [V] from battery
   driver.voltage_power_supply = 11.1;
   // amps = voltage / ohms 
@@ -60,7 +81,7 @@ void setup() {
   }
 
   // set the target velocity [rad/s] 
-  motor.target = 6.28; // one rotation per second
+  motor.target = 0; // one rotation per second
 
   // add target command T
   command.add('T', doTarget, "target velocity");
@@ -72,17 +93,35 @@ void setup() {
 }
 
 void loop() {
-  motor.move();
+  bool currentButtonState = digitalRead(SAFETY_PIN);
+  if (sv.lastButtonState == HIGH && currentButtonState == LOW) {
+    // toggle motor state
+    sv.motorOn = !sv.motorOn;
+  }
+  sv.lastButtonState = currentButtonState;
+  //Serial.println(sv.motorOn);
+
+  encoder.update();
+  Serial.print(encoder.getAngle());
+  Serial.print("\t");
+  Serial.println(encoder.getVelocity());
+  
+  if (sv.motorOn == 1) {
+    motor.move();
+  }
 
   // user communication
   command.run();
-  blinkyLight();
 }
 
 //lets me know arduino is on
-void blinkyLight() {
-  digitalWrite(LED_BUILTIN, HIGH);  // turn the LED on (HIGH is the voltage level)
-  delay(1000);                      // wait for a second
-  digitalWrite(LED_BUILTIN, LOW);   // turn the LED off by making the voltage LOW
-  delay(1000); 
-}
+// void blinkyLight() {
+//   digitalWrite(LED_BUILTIN, HIGH);  // turn the LED on (HIGH is the voltage level)
+//   delay(1000);                      // wait for a second
+//   digitalWrite(LED_BUILTIN, LOW);   // turn the LED off by making the voltage LOW
+//   delay(1000); 
+// }
+
+void doA(){encoder.handleA();}
+void doB(){encoder.handleB();}
+void doIndex(){encoder.handleIndex();}
