@@ -3,17 +3,32 @@
 #include "main.h"
 
 int SAFETY_PIN = 13; //pin safety switch
+int PWM_A_1 = 5;
+int PWM_B_1 = 9;
+int PWM_C_1 = 6;
+int ENABLE_1 = 8;
+int ENCODER_A_1 = 2;
+int ENCODER_B_1 = 3;
+int PPR = 2048;
 SensorState sv; //  allocated stack
 
 
 //------------------------------ENCODER--------------------------
-Encoder encoder = Encoder(2, 3, 2048);
+Encoder encoder = Encoder(ENCODER_A_1, ENCODER_B_1, PPR);
 
 
 //----------------------------------MOTOR-----------------------
 //SensorState sensorPointer = &sensorState; 
 //8 is enable, these pin numbers are on the back of the motor driver corresponding to a,b,c
-BLDCDriver3PWM driver = BLDCDriver3PWM(5, 9, 6, 8);
+BLDCDriver3PWM driver = BLDCDriver3PWM(PWM_A_1, PWM_B_1, PWM_C_1, ENABLE_1);
+
+// InlineCurrentSensor constructor
+//  - shunt_resistor  - shunt resistor value
+//  - gain  - current-sense op-amp gain, don't make this too high
+//  - phA   - A phase adc pin
+//  - phB   - B phase adc pin
+//  - phC   - C phase adc pin (optional)
+InlineCurrentSense current_sense  = InlineCurrentSense(0.01, 20, A0, A1, A2);
 
 // motor info!
 // GM4108H
@@ -24,13 +39,13 @@ BLDCDriver3PWM driver = BLDCDriver3PWM(5, 9, 6, 8);
 
 BLDCMotor motor = BLDCMotor(11);
 
-// instantiate the commander
+// instantiate the commander - remove to save memory
 // press T followed by number to change motor speed in serial termal during program running
-Commander command = Commander(Serial);
+//Commander command = Commander(Serial);
 //FOR OPEN LOOP
 // void doTarget(char* cmd) { command.scalar(&motor.target, cmd); }
 // void doLimit(char* cmd) { command.scalar(&motor.voltage_limit, cmd); }
-void doMotor(char* cmd) { command.motor(&motor, cmd); }
+//void doMotor(char* cmd) { command.motor(&motor, cmd); }
 
 void setup() {
   //initialize struct variables
@@ -42,21 +57,18 @@ void setup() {
 
   //initialize serial monitoring
   Serial.begin(115200);
-  Serial.println("hello world!");
+  //Serial.println("hello world!");
   SimpleFOCDebug::enable(&Serial);
 
   //encoder properties
   encoder.init();
-  // hardware interrupt enable
-  encoder.enableInterrupts(doA, doB);
+  encoder.enableInterrupts(doA, doB);   // hardware interrupt enable
   // Quadrature mode enabling and disabling
   //  Quadrature::ON - CPR = 4xPPR  - default
   //  Quadrature::OFF - CPR = PPR
   // encoder.quadrature = Quadrature::OFF;
 
-  //link
-  // link the motor to the sensor
-  motor.linkSensor(&encoder);
+  motor.linkSensor(&encoder); // link the motor to the sensor
   
   //motor properties
   // // power supply voltage [V] from battery
@@ -71,29 +83,27 @@ void setup() {
     return;
   }
   motor.linkDriver(&driver);
+  // link driver to cs
+  current_sense.linkDriver(&driver);
 
-  // aligning voltage
-  motor.voltage_sensor_align = 15;
+  //current sense init hardware
+  if(!current_sense.init()){
+    Serial.println("Current sense init failed!");
+    return;
+  }
+  
+  motor.linkCurrentSense(&current_sense); // link the current sense to the motor
 
-  // limiting motor movements
-  // limit the voltage to be set to the motor
-  // start very low for high resistance motors
-  // current = voltage / resistance, so try to be well under 1Amp
-
-  //ONLY FOR OPEN LOOP, KEEP COMMENTED IF USING CLOSED LOOP
-  //max current 1.3A for this motor
-  //1.3A > 5 / 5.6
-  // motor.voltage_limit = 5;   // [V]
-  //  // open loop control config
-  // motor.controller = MotionControlType::velocity_openloop;
-
-  //CLOSED LOOP code
+  motor.voltage_sensor_align = 15;   // aligning voltage
   // set motion control loop to be used
-  motor.torque_controller = TorqueControlType::voltage;
+  motor.torque_controller = TorqueControlType::foc_current; 
   motor.controller = MotionControlType::torque;
 
   // comment out if not needed
   motor.useMonitoring(Serial);
+  //motor.monitor_downsampling = 100; // set downsampling can be even more > 100
+  //motor.useMonitoring(Serial, 100);
+  motor.monitor_variables = _MON_CURR_Q | _MON_CURR_D; // set monitoring of d and q currents
 
    // init motor hardware
   if(!motor.init()){
@@ -108,18 +118,11 @@ void setup() {
   }
 
   // set the target velocity [rad/s] 
-  motor.target = 2; // one rotation per second
+  motor.target = 0; // one rotation per second
 
-  // // add target command T for OPEN loop
-  // command.add('T', doTarget, "target velocity");
-  // command.add('L', doLimit, "voltage limit");
-
-  // add target command M for CLOSED loop
-  command.add('M', doMotor, "Motor");
+  //command.add('M', doMotor, "Motor");
   Serial.println(F("Motor ready."));
-  Serial.println(F("Set the target using serial terminal and command M:"));
-  // Serial.println("Motor ready!");
-  // Serial.println("Set target velocity [rad/s]");
+  //Serial.println(F("Set the target using serial terminal and command M:"));
   _delay(1000);
 }
 
@@ -132,7 +135,7 @@ void loop() {
   sv.lastButtonState = currentButtonState;
   
   // main FOC algorithm function
-  motor.loopFOC();
+  
 
   // encoder.update();
   // Serial.print(encoder.getAngle());
@@ -140,11 +143,15 @@ void loop() {
   // Serial.println(encoder.getVelocity());
   
   if (sv.motorOn == 1) {
+    motor.loopFOC();
     motor.move();
   }
 
+  // display the currents
+  //motor.monitor();
+
   // user communication
-  command.run();
+  //command.run();
 }
 
 //lets me know arduino is on
