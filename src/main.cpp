@@ -12,6 +12,14 @@ int ENCODER_B_1 = 3;
 int PPR = 2048;
 SensorState sv; //  allocated stack
 
+//-------------------------SIMULATION-------------------------------
+Simulation currentState = Simulation::CALIBRATION;
+unsigned long stateStartTime = 0; // track time we entered the current state
+
+//Store distances and velocities
+// const float dropDistance = 3.0;  // for example, 3 meters
+// bool motor1DropComplete = false;
+
 
 //------------------------------ENCODER--------------------------
 Encoder encoder = Encoder(ENCODER_A_1, ENCODER_B_1, PPR);
@@ -48,6 +56,9 @@ BLDCMotor motor = BLDCMotor(11);
 //void doMotor(char* cmd) { command.motor(&motor, cmd); }
 
 void setup() {
+  //random 
+  randomSeed(analogRead(A0)); 
+
   //initialize struct variables
   sv.motorOn = true;
   sv.lastButtonState = HIGH;
@@ -154,14 +165,32 @@ void loop() {
   //command.run();
 }
 
-//lets me know arduino is on
-// void blinkyLight() {
-//   digitalWrite(LED_BUILTIN, HIGH);  // turn the LED on (HIGH is the voltage level)
-//   delay(1000);                      // wait for a second
-//   digitalWrite(LED_BUILTIN, LOW);   // turn the LED off by making the voltage LOW
-//   delay(1000); 
-// }
-
 void doA(){encoder.handleA();}
 void doB(){encoder.handleB();}
-void doIndex(){encoder.handleIndex();}
+// void doIndex(){encoder.handleIndex();}
+
+void move(float distance, float milli, MotorID motor, MountSide side) {
+  // Decide direction or logic based on which side the motor is on
+  if (side == MountSide::LEFT) {
+    // run motor CW
+  } else {
+    // run motor CCW
+  }
+}
+
+// void reelOut(float meters, float milli, MountSide side) {
+//   // Decide direction or logic based on which side the motor is on
+//   if (side == MountSide::LEFT) {
+//     // run motor CCW
+//   } else {
+//     // run motor CW
+//   }
+// }
+
+int randomRange(int start, int end) {
+  return random(start, end);
+}
+
+MotorID selectMotor() {
+  return static_cast<MotorID>( randomRange(0,2) );
+}
