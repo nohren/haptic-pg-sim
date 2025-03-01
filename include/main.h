@@ -1,23 +1,23 @@
-enum class MountSide {
+enum struct MountSide {
   LEFT,
   RIGHT
 };
 
-enum class MotorID {
+enum struct MotorID {
   MOTOR_ONE = 0,
-  MOTOR_TWO = 1
+  MOTOR_TWO
 };
 
-enum class Simulation {
+//state machine
+enum struct Simulation {
   CALIBRATION,
   RANDOM_NOISE,
   DROP_MOTOR,
   PAUSE_AFTER_DROP,
   READ_MOTOR,
-  DONE
+  IDLE
 };
 
-//store state here
 struct SensorState {
   bool motorOn;
   bool lastButtonState;

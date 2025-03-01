@@ -13,12 +13,15 @@ int PPR = 2048;
 SensorState sv; //  allocated stack
 
 //-------------------------SIMULATION-------------------------------
-Simulation currentState = Simulation::CALIBRATION;
+Simulation currentState = Simulation::IDLE;
 unsigned long stateStartTime = 0; // track time we entered the current state
-
+bool phaseComplete = false;
 //Store distances and velocities
 // const float dropDistance = 3.0;  // for example, 3 meters
 // bool motor1DropComplete = false;
+float currentPosition = 0.0;
+float targetPosition = 0.0;
+float targetVelocity = 0.0;
 
 
 //------------------------------ENCODER--------------------------
@@ -90,7 +93,7 @@ void setup() {
   driver.voltage_limit = 11.1;
 
   if(!driver.init()) {
-    Serial.println("Driver init failed!");
+    //Serial.println("Driver init failed!");
     return;
   }
   motor.linkDriver(&driver);
@@ -99,7 +102,7 @@ void setup() {
 
   //current sense init hardware
   if(!current_sense.init()){
-    Serial.println("Current sense init failed!");
+    //Serial.println("Current sense init failed!");
     return;
   }
   
@@ -111,20 +114,20 @@ void setup() {
   motor.controller = MotionControlType::torque;
 
   // comment out if not needed
-  motor.useMonitoring(Serial);
+  //motor.useMonitoring(Serial);
   //motor.monitor_downsampling = 100; // set downsampling can be even more > 100
   //motor.useMonitoring(Serial, 100);
-  motor.monitor_variables = _MON_CURR_Q | _MON_CURR_D; // set monitoring of d and q currents
+  //motor.monitor_variables = _MON_CURR_Q | _MON_CURR_D; // set monitoring of d and q currents
 
    // init motor hardware
   if(!motor.init()){
-    Serial.println("Motor init failed!");
+    //Serial.println("Motor init failed!");
     return;
   }
 
   // align sensor and start FOC
   if(!motor.initFOC()){
-    Serial.println("FOC init failed!");
+    //Serial.println("FOC init failed!");
     return;
   }
 
@@ -132,7 +135,7 @@ void setup() {
   motor.target = 0; // one rotation per second
 
   //command.add('M', doMotor, "Motor");
-  Serial.println(F("Motor ready."));
+  //Serial.println(F("Motor ready."));
   //Serial.println(F("Set the target using serial terminal and command M:"));
   _delay(1000);
 }
@@ -187,6 +190,10 @@ void move(float distance, float milli, MotorID motor, MountSide side) {
 //   }
 // }
 
+/*
+  start - inclusive
+  end - exclusive
+*/
 int randomRange(int start, int end) {
   return random(start, end);
 }
