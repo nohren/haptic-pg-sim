@@ -108,77 +108,77 @@ void setup() {
   }
  
   command.add('M', doMotor, "Motor");
-  command.add('X', doAngle, "angle");
+  command.add('A', doAngle, "angle");
   Serial.println(F("Motor ready."));
   Serial.println(F("Set the target using serial terminal and command M:"));
   _delay(1000);
 }
 
 void loop() {
-  if (sim_state.current != sim_state.previous) {
-    stateStartTime = micros();
-    sim_state.previous = sim_state.current;
+  // if (sim_state.current != sim_state.previous) {
+  //   stateStartTime = micros();
+  //   sim_state.previous = sim_state.current;
 
-    if (sim_state.current == Simulation::RANDOM_NOISE) {
-      sim_state.random_noise_rand = randomRange(5, 26);
-    }
-  }
+  //   if (sim_state.current == Simulation::RANDOM_NOISE) {
+  //     sim_state.random_noise_rand = randomRange(5, 26);
+  //   }
+  // }
   
-  if (motor.velocity_limit != targetVelocity_0) {
-    motor.velocity_limit = targetVelocity_0;
-  }
+  // if (motor.velocity_limit != targetVelocity_0) {
+  //   motor.velocity_limit = targetVelocity_0;
+  // }
 
-  switch (sim_state.current){
-    case Simulation::IDLE:
-      // perceive/detect inputs & set state to calibration
-      if (micros() - stateStartTime > 1000.0*1e6) {
-        Serial.println("timer finished");
-        //updatePositionAndSpeed(6.28, 4, MotorID::MOTOR_ONE, MountSide::RIGHT);
-        //sim_state.current = Simulation::RANDOM_NOISE;
-      }
-      if (millis() - stateStartTime > 40000) {
-        // Serial.println("update position -6.28");
-        // updatePositionAndSpeed(-6.28, 1, MotorID::MOTOR_ONE, MountSide::RIGHT);
-        //sim_state.current = Simulation::RANDOM_NOISE;
-      }
-      break;
-    case Simulation::CALIBRATION:
-    Serial.println("calibration");
-      // 5 seconds of no perceived inputs
-      if (millis() - stateStartTime > 5000) {
-        sim_state.current = Simulation::RANDOM_NOISE;
-      }
-      break;
-    case Simulation::RANDOM_NOISE:
-      // implemente random noise of the break (oren's hands shaked)
-      if (millis() - stateStartTime > sim_state.random_noise_rand * 1000) {
-        sim_state.current = Simulation::INCIDENT;
-      }
+  // switch (sim_state.current){
+  //   case Simulation::IDLE:
+  //     // perceive/detect inputs & set state to calibration
+  //     if (micros() - stateStartTime > 1000.0*1e6) {
+  //       //Serial.println("timer finished");
+  //       //updatePositionAndSpeed(6.28, 4, MotorID::MOTOR_ONE, MountSide::RIGHT);
+  //       //sim_state.current = Simulation::RANDOM_NOISE;
+  //     }
+  //     if (millis() - stateStartTime > 40000) {
+  //       // Serial.println("update position -6.28");
+  //       // updatePositionAndSpeed(-6.28, 1, MotorID::MOTOR_ONE, MountSide::RIGHT);
+  //       //sim_state.current = Simulation::RANDOM_NOISE;
+  //     }
+  //     break;
+  //   case Simulation::CALIBRATION:
+  //   Serial.println("calibration");
+  //     // 5 seconds of no perceived inputs
+  //     if (millis() - stateStartTime > 5000) {
+  //       sim_state.current = Simulation::RANDOM_NOISE;
+  //     }
+  //     break;
+  //   case Simulation::RANDOM_NOISE:
+  //     // implemente random noise of the break (oren's hands shaked)
+  //     if (millis() - stateStartTime > sim_state.random_noise_rand * 1000) {
+  //       sim_state.current = Simulation::INCIDENT;
+  //     }
 
-      break;
-    case Simulation::INCIDENT:
-      // change target position value  
-      break;
-    case Simulation::RESPONSE:
-    if (millis() - stateStartTime > 3000) {
-      if (false) { // perceived inputs to declare success
+  //     break;
+  //   case Simulation::INCIDENT:
+  //     // change target position value  
+  //     break;
+  //   case Simulation::RESPONSE:
+  //   if (millis() - stateStartTime > 3000) {
+  //     if (false) { // perceived inputs to declare success
 
-      } else {
-        sim_state.current = Simulation::RANDOM_NOISE;
-      }
-    } 
-      break;
-    case Simulation::INVALID:
-      break;
-    default:
-      // weird simulation state detected
-      break;
-    }
+  //     } else {
+  //       sim_state.current = Simulation::RANDOM_NOISE;
+  //     }
+  //   } 
+  //     break;
+  //   case Simulation::INVALID:
+  //     break;
+  //   default:
+  //     // weird simulation state detected
+  //     break;
+  //   }
   // encoder.update();
   // Serial.print(encoder.getAngle());
   // Serial.print("\t");
   // Serial.println(encoder.getVelocity());
-
+  updateStuff();
   motor.loopFOC();
   motor.move();
   //motor.monitor();
@@ -222,4 +222,26 @@ unsigned int randomRange(int start, int end) {
 
 MotorID selectMotor() {
   return static_cast<MotorID>( randomRange(0,2) );
+}
+
+void updateStuff() {
+  encoder.update();
+  float currentAngle = encoder.getAngle();
+  float currentVelocity = encoder.getVelocity();
+  // Serial.print(currentAngle);
+  // Serial.print("\t");
+  // Serial.println();
+
+  //if current angle is not equal to target angle, go to target angle
+  //positive voltage is CCW
+  //negative is CW
+  if (abs(currentAngle - targetAngle) > 0.5) {
+    if (targetAngle < currentAngle) {
+      motor.target = -2;
+    } else {
+      motor.target = 2;
+    }
+  } else {
+    motor.target = 0;
+  }
 }

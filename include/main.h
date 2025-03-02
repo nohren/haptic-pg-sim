@@ -55,4 +55,6 @@ void move(float targetPosition, float currentPosition, float targetVelocity, flo
 unsigned int randomRange(int start, int end);
 MotorID selectMotor(void);
 
+void updateStuff(void);
+
 
