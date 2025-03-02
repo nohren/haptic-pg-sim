@@ -28,6 +28,7 @@ float targetPosition_1 = 0.0;
 float targetVelocity_1 = 0.0;
 
 //motor movement 
+float targetAngle = 0.0;
 
 
 //------------------------------ENCODER--------------------------
@@ -58,6 +59,8 @@ BLDCMotor motor = BLDCMotor(pole_pairs);
 
 Commander command = Commander(Serial); //remove to save memory
 void doMotor(char* cmd) { command.motor(&motor, cmd); }
+void doAngle(char* cmd) { command.scalar(&targetAngle, cmd); }
+
 
 void setup() {
   randomSeed(analogRead(A0));
@@ -76,21 +79,21 @@ void setup() {
   motor.linkDriver(&driver);
 
   motor.torque_controller = TorqueControlType::voltage; 
-  motor.controller = MotionControlType::angle;
+  motor.controller = MotionControlType::torque;
   //PID default 0.05,10,0.001
-  motor.PID_velocity.P = 0.1; //proportional gain - used to correct current and target angle/velocity. higher is more aggressive.
-  motor.PID_velocity.I = 10; //for correcting velocity error
-  motor.PID_velocity.D = 0.001; //damps sudden changes to angle velocity
-  // jerk control using voltage voltage ramp
-  // default value is 300 volts per sec  ~ 0.3V per millisecond
-  motor.PID_velocity.output_ramp = 1000;
+  // motor.PID_velocity.P = 0.1; //proportional gain - used to correct current and target angle/velocity. higher is more aggressive.
+  // motor.PID_velocity.I = 10; //for correcting velocity error
+  // motor.PID_velocity.D = 0.001; //damps sudden changes to angle velocity
+  // // jerk control using voltage voltage ramp
+  // // default value is 300 volts per sec  ~ 0.3V per millisecond
+  // motor.PID_velocity.output_ramp = 1000;
 
-  motor.P_angle.P = 5;   // angle P controller -  default P=20
-  // velocity low pass filtering
-  // default 5ms - try different values to see what is the best. 
-  // the lower the less filtered
-  motor.LPF_velocity.Tf = 0.01;
-  motor.velocity_limit = targetVelocity_0; //maximal velocity of the position control
+  // motor.P_angle.P = 5;   // angle P controller -  default P=20
+  // // velocity low pass filtering
+  // // default 5ms - try different values to see what is the best. 
+  // // the lower the less filtered
+  // motor.LPF_velocity.Tf = 0.01;
+  // motor.velocity_limit = targetVelocity_0; //maximal velocity of the position control
 
   //key for reducing torque!
   motor.voltage_limit = 3;
@@ -103,8 +106,9 @@ void setup() {
     Serial.println("FOC init failed!");
     return;
   }
-
+ 
   command.add('M', doMotor, "Motor");
+  command.add('X', doAngle, "angle");
   Serial.println(F("Motor ready."));
   Serial.println(F("Set the target using serial terminal and command M:"));
   _delay(1000);
@@ -176,7 +180,7 @@ void loop() {
   // Serial.println(encoder.getVelocity());
 
   motor.loopFOC();
-  motor.move(targetPosition_0);
+  motor.move();
   //motor.monitor();
   // user communication
   //command.run();
