@@ -186,7 +186,7 @@ void loop() {
 
       if (!arrived || (_micros() - stateStartTime) <= 3000000UL) {
         // TODO - implement the other motor movement detection as user response time
-        if (false) {
+        if (false) { // there is user movement
           // TODO - set success if the movement is greater than a threshold. i.e. non random movement; otherwise, no action taken
           bool success = false;
           if (success) {
