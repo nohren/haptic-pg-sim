@@ -10,3 +10,5 @@ struct SensorState {
   bool motorOn;
   bool lastButtonState;
 };
+
+void updateStuff(void);

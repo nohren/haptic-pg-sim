@@ -5,6 +5,7 @@
 int SAFETY_PIN = 13; //pin safety switch
 SensorState sv; //  allocated stack
 
+float targetAngle = 0.0;
 
 //------------------------------ENCODER--------------------------
 Encoder encoder = Encoder(2, 3, 500);
@@ -29,6 +30,7 @@ BLDCMotor motor = BLDCMotor(11);
 Commander command = Commander(Serial);
 void doTarget(char* cmd) { command.scalar(&motor.target, cmd); }
 void doLimit(char* cmd) { command.scalar(&motor.voltage_limit, cmd); }
+void doAngle(char* cmd) { command.scalar(&targetAngle, cmd); }
 
 void setup() {
   //initialize struct variables
@@ -81,11 +83,12 @@ void setup() {
   }
 
   // set the target velocity [rad/s] 
-  motor.target = 0; // one rotation per second
+  //motor.target = 2; // one rotation per second
 
   // add target command T
   command.add('T', doTarget, "target velocity");
   command.add('L', doLimit, "voltage limit");
+  command.add('X', doAngle, "angle");
 
   Serial.println("Motor ready!");
   Serial.println("Set target velocity [rad/s]");
@@ -101,14 +104,11 @@ void loop() {
   sv.lastButtonState = currentButtonState;
   //Serial.println(sv.motorOn);
 
-  encoder.update();
-  Serial.print(encoder.getAngle());
-  Serial.print("\t");
-  Serial.println(encoder.getVelocity());
+  updateStuff();
   
-  if (sv.motorOn == 1) {
-    motor.move();
-  }
+  // if (sv.motorOn == 1) { //buggy
+  // }
+  // motor.move();
 
   // user communication
   command.run();
@@ -125,3 +125,25 @@ void loop() {
 void doA(){encoder.handleA();}
 void doB(){encoder.handleB();}
 void doIndex(){encoder.handleIndex();}
+
+void updateStuff() {
+  encoder.update();
+  float currentAngle = encoder.getAngle();
+  float currentVelocity = encoder.getVelocity();
+  // Serial.print(currentAngle);
+  // Serial.print("\t");
+  // Serial.println();
+
+  //if current angle is not equal to target angle, go to target angle
+  //positive voltage is CCW
+  //negative is CW
+  if (abs(currentAngle - targetAngle) > 0.5) {
+    if (targetAngle < currentAngle) {
+      motor.target = -2;
+    } else {
+      motor.target = 2;
+    }
+  } else {
+    motor.target = 0;
+  }
+}
