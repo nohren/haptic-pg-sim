@@ -15,18 +15,19 @@ enum struct Simulation {
   RANDOM_NOISE,
   INCIDENT,
   RESPONSE,
+  RESET,
   INVALID
 };
 
 struct SimulationState {
   Simulation current;
   Simulation previous;
-  unsigned int random_noise_rand;
+  unsigned long random_noise_rand;
 
   SimulationState() {
     current = Simulation::IDLE;
     previous = Simulation::INVALID;
-    random_noise_rand = -1;
+    random_noise_rand = -1UL;
   }
 };
 /*
@@ -46,15 +47,9 @@ void doB(void);
   motor - motor 1 or 2
   side - which side is the motor mounted on. CW or CCW conversion for out and in values.
 */
-void updatePositionAndSpeed(float targetPosition, float targetVelocity, MotorID motor, MountSide side);
-
-//sits in the update loop and adjusts motor
-void move(float targetPosition, float currentPosition, float targetVelocity, float currentVelocity, MotorID motor, MountSide side);
+void moveBrake(float targetPosition, float targetVelocity, MotorID motor, MountSide side);
 
 //random functions 
 unsigned int randomRange(int start, int end);
 MotorID selectMotor(void);
-
-void updateStuff(void);
-
 

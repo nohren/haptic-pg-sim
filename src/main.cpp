@@ -29,6 +29,7 @@ float targetVelocity_1 = 0.0;
 
 //motor movement 
 float targetAngle = 0.0;
+float targetVoltage = 0.0;
 
 
 //------------------------------ENCODER--------------------------
@@ -66,9 +67,12 @@ void setup() {
   randomSeed(analogRead(A0));
   Serial.begin(115200);
   SimpleFOCDebug::enable(&Serial);
+
+  // Handle and initialize encoder
   encoder.init(); 
   encoder.enableInterrupts(doA, doB); 
-  motor.linkSensor(&encoder); 
+
+  // Handle and initialize driver
   driver.voltage_power_supply = 11.1;
   driver.voltage_limit = 11.1; //amps = voltage / ohms  11.1v battery / 11 ohms = 1amp < 1.5 amp ... we good
 
@@ -76,27 +80,31 @@ void setup() {
     Serial.println("Driver init failed!");
     return;
   }
-  motor.linkDriver(&driver);
-
+  
+  // Handle and initialize motor
   motor.torque_controller = TorqueControlType::voltage; 
-  motor.controller = MotionControlType::torque;
+  motor.controller = MotionControlType::angle;
+  
   //PID default 0.05,10,0.001
-  // motor.PID_velocity.P = 0.1; //proportional gain - used to correct current and target angle/velocity. higher is more aggressive.
-  // motor.PID_velocity.I = 10; //for correcting velocity error
-  // motor.PID_velocity.D = 0.001; //damps sudden changes to angle velocity
-  // // jerk control using voltage voltage ramp
-  // // default value is 300 volts per sec  ~ 0.3V per millisecond
-  // motor.PID_velocity.output_ramp = 1000;
+  motor.PID_velocity.P = 0.1; //proportional gain - used to correct current and target angle/velocity. higher is more aggressive.
+  motor.PID_velocity.I = 10; //for correcting velocity error
+  motor.PID_velocity.D = 0.001; //damps sudden changes to angle velocity
+  // jerk control using voltage voltage ramp
+  // default value is 300 volts per sec  ~ 0.3V per millisecond
+  motor.PID_velocity.output_ramp = 1000;
 
-  // motor.P_angle.P = 5;   // angle P controller -  default P=20
-  // // velocity low pass filtering
-  // // default 5ms - try different values to see what is the best. 
-  // // the lower the less filtered
-  // motor.LPF_velocity.Tf = 0.01;
-  // motor.velocity_limit = targetVelocity_0; //maximal velocity of the position control
+  motor.P_angle.P = 5;   // angle P controller -  default P=20
+  // velocity low pass filtering
+  // default 5ms - try different values to see what is the best. 
+  // the lower the less filtered
+  motor.LPF_velocity.Tf = 0.01;
+  motor.velocity_limit = targetVelocity_0; //maximal velocity of the position control
 
   //key for reducing torque!
-  motor.voltage_limit = 3;
+  motor.voltage_limit = 4;
+
+  motor.linkSensor(&encoder); 
+  motor.linkDriver(&driver);
 
   if(!motor.init()){
     Serial.println("Motor init failed!");
@@ -110,87 +118,128 @@ void setup() {
   command.add('M', doMotor, "Motor");
   command.add('A', doAngle, "angle");
   Serial.println(F("Motor ready."));
-  Serial.println(F("Set the target using serial terminal and command M:"));
+  //Serial.println(F("Set the target using serial terminal and command M:"));
   _delay(1000);
 }
-
+long timestamp_us = _micros();
 void loop() {
-  // if (sim_state.current != sim_state.previous) {
-  //   stateStartTime = micros();
-  //   sim_state.previous = sim_state.current;
+  if (sim_state.current != sim_state.previous) {
+    stateStartTime = _micros();
+    Serial.println("set start time");
+    Serial.println(stateStartTime);
+    sim_state.previous = sim_state.current;
 
-  //   if (sim_state.current == Simulation::RANDOM_NOISE) {
-  //     sim_state.random_noise_rand = randomRange(5, 26);
-  //   }
-  // }
+    if (sim_state.current == Simulation::RANDOM_NOISE) {
+      sim_state.random_noise_rand = randomRange(5, 26) * 1000000UL;
+    }
+  }
   
-  // if (motor.velocity_limit != targetVelocity_0) {
-  //   motor.velocity_limit = targetVelocity_0;
-  // }
+  if (motor.velocity_limit != targetVelocity_0) {
+    motor.velocity_limit = targetVelocity_0;
+  }
 
-  // switch (sim_state.current){
-  //   case Simulation::IDLE:
-  //     // perceive/detect inputs & set state to calibration
-  //     if (micros() - stateStartTime > 1000.0*1e6) {
-  //       //Serial.println("timer finished");
-  //       //updatePositionAndSpeed(6.28, 4, MotorID::MOTOR_ONE, MountSide::RIGHT);
-  //       //sim_state.current = Simulation::RANDOM_NOISE;
-  //     }
-  //     if (millis() - stateStartTime > 40000) {
-  //       // Serial.println("update position -6.28");
-  //       // updatePositionAndSpeed(-6.28, 1, MotorID::MOTOR_ONE, MountSide::RIGHT);
-  //       //sim_state.current = Simulation::RANDOM_NOISE;
-  //     }
-  //     break;
-  //   case Simulation::CALIBRATION:
-  //   Serial.println("calibration");
-  //     // 5 seconds of no perceived inputs
-  //     if (millis() - stateStartTime > 5000) {
-  //       sim_state.current = Simulation::RANDOM_NOISE;
-  //     }
-  //     break;
-  //   case Simulation::RANDOM_NOISE:
-  //     // implemente random noise of the break (oren's hands shaked)
-  //     if (millis() - stateStartTime > sim_state.random_noise_rand * 1000) {
-  //       sim_state.current = Simulation::INCIDENT;
-  //     }
+  switch (sim_state.current){
+    case Simulation::IDLE:
+      Serial.println("Idle State");
+      // TODO - check if motor is moving rather than if 5 seconds has passed
+      // Compare motor.shaftAngle with command of motor.  I.e is there torque being applied?
+      // this can detect pull forces
+      if ((_micros() - stateStartTime) > 5000000UL) {
+        sim_state.current = Simulation::CALIBRATION;
+      }
+      break;
+    case Simulation::CALIBRATION:
+      Serial.println("Calibration State");
+      //TODO - make MOTOR relaxed. Meaning you can pull it into a different position, no torque.
+      if ((_micros() - stateStartTime) > 5000000UL) {
+        sim_state.current = Simulation::RANDOM_NOISE;
+      } else if (false) { // TODO - implement motor movement detection (similar with IDLE)
+        stateStartTime = _micros();
+      }
+      break;
+    case Simulation::RANDOM_NOISE:
+      
+      if ((_micros() - stateStartTime) > sim_state.random_noise_rand) {
+        sim_state.current = Simulation::INCIDENT;
+      } else if((_micros() - timestamp_us) > 1000000UL) {
+        timestamp_us = _micros();
+        // TODO - implement shaking of brakes using a progressive timer (oren's hands shaked)
+        // https://docs.simplefoc.com/angle_loop
+        // invert the signal changing direction every half second to four seconds on each brake randomly 
+        // inverse angle in radians
+        targetPosition_0 = -targetPosition_0;   
+      }
+      break;
+    case Simulation::INCIDENT:
+      // change target position value  
+      // TODO - make motor moved random
+      // 0.5m, 0.15m/s
+      moveBrake(0.5, 0.15, MotorID::MOTOR_ONE, MountSide::RIGHT);
+      sim_state.current = Simulation::RESPONSE;
+      break;
+    case Simulation::RESPONSE:
+      // TODO - detect if motor has arrived incident location
+      bool arrived = false;
+      if (false) {
+        arrived = true;
+      }
 
-  //     break;
-  //   case Simulation::INCIDENT:
-  //     // change target position value  
-  //     break;
-  //   case Simulation::RESPONSE:
-  //   if (millis() - stateStartTime > 3000) {
-  //     if (false) { // perceived inputs to declare success
+      if (!arrived || (_micros() - stateStartTime) <= 3000000UL) {
+        // TODO - implement the other motor movement detection as user response time
+        if (false) {
+          // TODO - set success if the movement is greater than a threshold. i.e. non random movement; otherwise, no action taken
+          bool success = false;
+          if (success) {
+            // TODO - implement success by adding a new state reset and all reset state does is to bring the motors back to 
+            // their original position and then go to IDLE state. We only go to IDLE state if the motors are back to their original position physically
+            sim_state.current = Simulation::RESET;
+          } // no action taken otherwise
+        }
 
-  //     } else {
-  //       sim_state.current = Simulation::RANDOM_NOISE;
-  //     }
-  //   } 
-  //     break;
-  //   case Simulation::INVALID:
-  //     break;
-  //   default:
-  //     // weird simulation state detected
-  //     break;
-  //   }
+        if (!arrived) {
+          stateStartTime = _micros(); // reset the timer
+        }
+      } else { // no action within 3 seconds after motor arrival
+        // TODO - implement failure 
+      }
+      break;
+    case Simulation::RESET:
+      // TODO - detect if motor has arrived at the original position
+      if (false) {
+        sim_state.current = Simulation::IDLE;
+      }
+      break;  
+    case Simulation::INVALID:
+      break;
+    default:
+      // weird simulation state detected
+      break;
+    }
+
+    // TODO
   // encoder.update();
   // Serial.print(encoder.getAngle());
   // Serial.print("\t");
   // Serial.println(encoder.getVelocity());
-  updateStuff();
-  motor.loopFOC();
-  motor.move();
+
+  // motor.loopFOC();
+  // motor.velocity_limit = targetVelocity_0;
+  // motor.move(targetPosition_0);
   //motor.monitor();
   // user communication
-  //command.run();
+  command.run();
 }
 
 void doA(){encoder.handleA();}
 void doB(){encoder.handleB();}
-// void doIndex(){encoder.handleIndex();}
+void doIndex(){encoder.handleIndex();}
 
-void updatePositionAndSpeed(float targetPosition, float targetVelocity, MotorID motor, MountSide side) {
+//TODO - Rahul ... input is meters, output needs to be in radians
+// diameter 47mm or 0.047m
+// radius 0.0235m
+// circumference 2pi*r = 0.1476m = 2pi radians = 1 rotation
+// 1 Meter = 6.77 rotations or 42.54 radians
+void moveBrake(float targetPosition, float targetVelocity, MotorID motor, MountSide side) {
   if (motor == MotorID::MOTOR_ZERO) {
     targetVelocity_0 = targetVelocity;
     targetPosition_0 = side == MountSide::LEFT ? -targetPosition: targetPosition;
@@ -204,14 +253,6 @@ void updatePositionAndSpeed(float targetPosition, float targetVelocity, MotorID 
   }
 }
 
-// this function is designed to sit in the update, update values and apply forces as needed
-void move(float targetPosition, float currentPosition, float targetVelocity, float currentVelocity, MotorID motor, MountSide side) {
-  return;
-  //need circumerfence length in meters which corresponds to 2pi radians
-  //1 rotation is 147.65 mm
-  
-}
-
 /*
   start - inclusive
   end - exclusive
@@ -222,26 +263,4 @@ unsigned int randomRange(int start, int end) {
 
 MotorID selectMotor() {
   return static_cast<MotorID>( randomRange(0,2) );
-}
-
-void updateStuff() {
-  encoder.update();
-  float currentAngle = encoder.getAngle();
-  float currentVelocity = encoder.getVelocity();
-  // Serial.print(currentAngle);
-  // Serial.print("\t");
-  // Serial.println();
-
-  //if current angle is not equal to target angle, go to target angle
-  //positive voltage is CCW
-  //negative is CW
-  if (abs(currentAngle - targetAngle) > 0.5) {
-    if (targetAngle < currentAngle) {
-      motor.target = -2;
-    } else {
-      motor.target = 2;
-    }
-  } else {
-    motor.target = 0;
-  }
 }
