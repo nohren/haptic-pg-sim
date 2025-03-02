@@ -2,44 +2,46 @@
 #include <SimpleFOC.h>
 #include "main.h"
 
-int SAFETY_PIN = 13; //pin safety switch
-int PWM_A_1 = 5;
-int PWM_B_1 = 9;
-int PWM_C_1 = 6;
-int ENABLE_1 = 8;
-int ENCODER_A_1 = 2;
-int ENCODER_B_1 = 3;
+int PWM_A_0 = 5;
+int PWM_B_0 = 9;
+int PWM_C_0 = 6;
+int ENABLE_0 = 8;
+int ENCODER_A_0 = 2;
+int ENCODER_B_0 = 3;
 int PPR = 2048;
-SensorState sv; //  allocated stack
+int pole_pairs = 11;
+// float phase_resistance = 11.1; //don't know if this is correct
+// SensorState sv; //  allocated to stack... not needed right now
 
 //-------------------------SIMULATION-------------------------------
-Simulation currentState = Simulation::IDLE;
+SimulationState sim_state;
+
 unsigned long stateStartTime = 0; // track time we entered the current state
 bool phaseComplete = false;
-//Store distances and velocities
-// const float dropDistance = 3.0;  // for example, 3 meters
-// bool motor1DropComplete = false;
-float currentPosition = 0.0;
-float targetPosition = 0.0;
-float targetVelocity = 0.0;
+//float currentPosition_0 = 0.0;
+float targetPosition_0 = 0.0;
+//float currentVelocity_0 = 0.0;
+float targetVelocity_0 = 0.0;
+//float currentPosition_1 = 0.0;
+float targetPosition_1 = 0.0;
+//float currentVelocity_1 = 0.0;
+float targetVelocity_1 = 0.0;
+
+//motor movement 
 
 
 //------------------------------ENCODER--------------------------
-Encoder encoder = Encoder(ENCODER_A_1, ENCODER_B_1, PPR);
+Encoder encoder = Encoder(ENCODER_A_0, ENCODER_B_0, PPR);
 
 
 //----------------------------------MOTOR-----------------------
 //SensorState sensorPointer = &sensorState; 
 //8 is enable, these pin numbers are on the back of the motor driver corresponding to a,b,c
-BLDCDriver3PWM driver = BLDCDriver3PWM(PWM_A_1, PWM_B_1, PWM_C_1, ENABLE_1);
+BLDCDriver3PWM driver = BLDCDriver3PWM(PWM_A_0, PWM_B_0, PWM_C_0, ENABLE_0);
 
-// InlineCurrentSensor constructor
-//  - shunt_resistor  - shunt resistor value
-//  - gain  - current-sense op-amp gain, don't make this too high
-//  - phA   - A phase adc pin
-//  - phB   - B phase adc pin
-//  - phC   - C phase adc pin (optional)
-InlineCurrentSense current_sense  = InlineCurrentSense(0.01, 20, A0, A1, A2);
+
+//uses up a lot of memory and not working for the params.  Too much to learn for too short a time!
+//InlineCurrentSense current_sense  = InlineCurrentSense(0.01, 20, A0, A1, A2);
 
 // motor info!
 // GM4108H
@@ -47,123 +49,135 @@ InlineCurrentSense current_sense  = InlineCurrentSense(0.01, 20, A0, A1, A2);
 // 22 poles, 11 poll pairs
 // Resistance(Ω): 11.1Ω±5%
 // Load Current (A): 1.5A
+// diameter 47mm or 0.047m
+// radius 0.0235
+// circumference 0.1476 or 2pi radians
+// 6.77 full rotations or 42.56 radians
 
-BLDCMotor motor = BLDCMotor(11);
+BLDCMotor motor = BLDCMotor(pole_pairs);
 
-// instantiate the commander - remove to save memory
-// press T followed by number to change motor speed in serial termal during program running
-//Commander command = Commander(Serial);
-//FOR OPEN LOOP
-// void doTarget(char* cmd) { command.scalar(&motor.target, cmd); }
-// void doLimit(char* cmd) { command.scalar(&motor.voltage_limit, cmd); }
-//void doMotor(char* cmd) { command.motor(&motor, cmd); }
+Commander command = Commander(Serial); //remove to save memory
+void doMotor(char* cmd) { command.motor(&motor, cmd); }
 
 void setup() {
-  //random 
-  randomSeed(analogRead(A0)); 
-
-  //initialize struct variables
-  sv.motorOn = true;
-  sv.lastButtonState = HIGH;
-  
-  //initialize pins
-  pinMode(SAFETY_PIN, INPUT);
-
-  //initialize serial monitoring
+  randomSeed(analogRead(A0));
   Serial.begin(115200);
-  //Serial.println("hello world!");
   SimpleFOCDebug::enable(&Serial);
-
-  //encoder properties
-  encoder.init();
-  encoder.enableInterrupts(doA, doB);   // hardware interrupt enable
-  // Quadrature mode enabling and disabling
-  //  Quadrature::ON - CPR = 4xPPR  - default
-  //  Quadrature::OFF - CPR = PPR
-  // encoder.quadrature = Quadrature::OFF;
-
-  motor.linkSensor(&encoder); // link the motor to the sensor
-  
-  //motor properties
-  // // power supply voltage [V] from battery
+  encoder.init(); 
+  encoder.enableInterrupts(doA, doB); 
+  motor.linkSensor(&encoder); 
   driver.voltage_power_supply = 11.1;
-  // amps = voltage / ohms 
-  // 11.1v battery / 11 ohms = 1amp which is well below 1.5 amps max
-  // 11.1v as max volage is well within range
-  driver.voltage_limit = 11.1;
+  driver.voltage_limit = 11.1; //amps = voltage / ohms  11.1v battery / 11 ohms = 1amp < 1.5 amp ... we good
 
   if(!driver.init()) {
-    //Serial.println("Driver init failed!");
+    Serial.println("Driver init failed!");
     return;
   }
   motor.linkDriver(&driver);
-  // link driver to cs
-  current_sense.linkDriver(&driver);
 
-  //current sense init hardware
-  if(!current_sense.init()){
-    //Serial.println("Current sense init failed!");
-    return;
-  }
-  
-  motor.linkCurrentSense(&current_sense); // link the current sense to the motor
+  motor.torque_controller = TorqueControlType::voltage; 
+  motor.controller = MotionControlType::angle;
+  //PID default 0.05,10,0.001
+  motor.PID_velocity.P = 0.1; //proportional gain - used to correct current and target angle/velocity. higher is more aggressive.
+  motor.PID_velocity.I = 10; //for correcting velocity error
+  motor.PID_velocity.D = 0.001; //damps sudden changes to angle velocity
+  // jerk control using voltage voltage ramp
+  // default value is 300 volts per sec  ~ 0.3V per millisecond
+  motor.PID_velocity.output_ramp = 1000;
 
-  motor.voltage_sensor_align = 15;   // aligning voltage
-  // set motion control loop to be used
-  motor.torque_controller = TorqueControlType::foc_current; 
-  motor.controller = MotionControlType::torque;
+  motor.P_angle.P = 5;   // angle P controller -  default P=20
+  // velocity low pass filtering
+  // default 5ms - try different values to see what is the best. 
+  // the lower the less filtered
+  motor.LPF_velocity.Tf = 0.01;
+  motor.velocity_limit = targetVelocity_0; //maximal velocity of the position control
 
-  // comment out if not needed
-  //motor.useMonitoring(Serial);
-  //motor.monitor_downsampling = 100; // set downsampling can be even more > 100
-  //motor.useMonitoring(Serial, 100);
-  //motor.monitor_variables = _MON_CURR_Q | _MON_CURR_D; // set monitoring of d and q currents
+  //key for reducing torque!
+  motor.voltage_limit = 3;
 
-   // init motor hardware
   if(!motor.init()){
-    //Serial.println("Motor init failed!");
+    Serial.println("Motor init failed!");
     return;
   }
-
-  // align sensor and start FOC
   if(!motor.initFOC()){
-    //Serial.println("FOC init failed!");
+    Serial.println("FOC init failed!");
     return;
   }
 
-  // set the target velocity [rad/s] 
-  motor.target = 0; // one rotation per second
-
-  //command.add('M', doMotor, "Motor");
-  //Serial.println(F("Motor ready."));
-  //Serial.println(F("Set the target using serial terminal and command M:"));
+  command.add('M', doMotor, "Motor");
+  Serial.println(F("Motor ready."));
+  Serial.println(F("Set the target using serial terminal and command M:"));
   _delay(1000);
 }
 
 void loop() {
-  bool currentButtonState = digitalRead(SAFETY_PIN);
-  if (sv.lastButtonState == HIGH && currentButtonState == LOW) {
-    // toggle motor state
-    sv.motorOn = !sv.motorOn;
-  }
-  sv.lastButtonState = currentButtonState;
-  
-  // main FOC algorithm function
-  
+  if (sim_state.current != sim_state.previous) {
+    stateStartTime = micros();
+    sim_state.previous = sim_state.current;
 
+    if (sim_state.current == Simulation::RANDOM_NOISE) {
+      sim_state.random_noise_rand = randomRange(5, 26);
+    }
+  }
+  
+  if (motor.velocity_limit != targetVelocity_0) {
+    motor.velocity_limit = targetVelocity_0;
+  }
+
+  switch (sim_state.current){
+    case Simulation::IDLE:
+      // perceive/detect inputs & set state to calibration
+      if (micros() - stateStartTime > 1000.0*1e6) {
+        Serial.println("timer finished");
+        //updatePositionAndSpeed(6.28, 4, MotorID::MOTOR_ONE, MountSide::RIGHT);
+        //sim_state.current = Simulation::RANDOM_NOISE;
+      }
+      if (millis() - stateStartTime > 40000) {
+        // Serial.println("update position -6.28");
+        // updatePositionAndSpeed(-6.28, 1, MotorID::MOTOR_ONE, MountSide::RIGHT);
+        //sim_state.current = Simulation::RANDOM_NOISE;
+      }
+      break;
+    case Simulation::CALIBRATION:
+    Serial.println("calibration");
+      // 5 seconds of no perceived inputs
+      if (millis() - stateStartTime > 5000) {
+        sim_state.current = Simulation::RANDOM_NOISE;
+      }
+      break;
+    case Simulation::RANDOM_NOISE:
+      // implemente random noise of the break (oren's hands shaked)
+      if (millis() - stateStartTime > sim_state.random_noise_rand * 1000) {
+        sim_state.current = Simulation::INCIDENT;
+      }
+
+      break;
+    case Simulation::INCIDENT:
+      // change target position value  
+      break;
+    case Simulation::RESPONSE:
+    if (millis() - stateStartTime > 3000) {
+      if (false) { // perceived inputs to declare success
+
+      } else {
+        sim_state.current = Simulation::RANDOM_NOISE;
+      }
+    } 
+      break;
+    case Simulation::INVALID:
+      break;
+    default:
+      // weird simulation state detected
+      break;
+    }
   // encoder.update();
   // Serial.print(encoder.getAngle());
   // Serial.print("\t");
   // Serial.println(encoder.getVelocity());
-  
-  if (sv.motorOn == 1) {
-    motor.loopFOC();
-    motor.move();
-  }
 
-  // display the currents
+  motor.loopFOC();
+  motor.move(targetPosition_0);
   //motor.monitor();
-
   // user communication
   //command.run();
 }
@@ -172,29 +186,33 @@ void doA(){encoder.handleA();}
 void doB(){encoder.handleB();}
 // void doIndex(){encoder.handleIndex();}
 
-void move(float distance, float milli, MotorID motor, MountSide side) {
-  // Decide direction or logic based on which side the motor is on
-  if (side == MountSide::LEFT) {
-    // run motor CW
+void updatePositionAndSpeed(float targetPosition, float targetVelocity, MotorID motor, MountSide side) {
+  if (motor == MotorID::MOTOR_ZERO) {
+    targetVelocity_0 = targetVelocity;
+    targetPosition_0 = side == MountSide::LEFT ? -targetPosition: targetPosition;
+    //convert targetPosition meters to radians - 2pi radians or 6.28 is approx equal to 144mm
+    //motor.controller = MotionControlType::angle;
+    //motor.velocity_limit = someMaxSpeed;
+    //adjust 
   } else {
-    // run motor CCW
+    targetVelocity_1 = targetVelocity;
+    targetPosition_1 = side == MountSide::LEFT ? -targetPosition: targetPosition;
   }
 }
 
-// void reelOut(float meters, float milli, MountSide side) {
-//   // Decide direction or logic based on which side the motor is on
-//   if (side == MountSide::LEFT) {
-//     // run motor CCW
-//   } else {
-//     // run motor CW
-//   }
-// }
+// this function is designed to sit in the update, update values and apply forces as needed
+void move(float targetPosition, float currentPosition, float targetVelocity, float currentVelocity, MotorID motor, MountSide side) {
+  return;
+  //need circumerfence length in meters which corresponds to 2pi radians
+  //1 rotation is 147.65 mm
+  
+}
 
 /*
   start - inclusive
   end - exclusive
 */
-int randomRange(int start, int end) {
+unsigned int randomRange(int start, int end) {
   return random(start, end);
 }
 
