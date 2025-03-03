@@ -61,7 +61,7 @@ void Simulation::updateRESET() {
     } else if (!simulation_state_stablized){
         simulation_state_stablized = true;
         newStateStartTime = _micros();
-    } else if (_micros() - newStateStartTime > calibration_wait) {
+    } else if (_micros() - newStateStartTime > reset_state_wait) {
         current = SimulationState::RANDOM_NOISE;
     }
 }
@@ -97,7 +97,7 @@ void Simulation::updateINCIDENT() {
 
 void Simulation::updateRESPONSE() {
     unsigned long current_time = _micros();
-    if ((current_time - newStateStartTime) <= 3000000UL) {
+    if ((current_time - newStateStartTime) <= response_time_wait) {
         // TODO - implement the other motor movement detection as user response time
         if (motionDetectedForMotor(ComponentID::ONE)) { // there is user movement
             current = SimulationState::RESET;
