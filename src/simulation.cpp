@@ -7,10 +7,9 @@ void Simulation::newState() {
     previous = current;
 
     if (current == SimulationState::RANDOM_NOISE) {
-      random_noise_rand = random(5, 26) * 1000000UL;
+      random_noise_wait = random(5, 26) * 1000000UL;
     }
 
-    // TODO(confirm) - record the beginning motor positions
     begining_motor_0_position = motor_0->shaftAngle();
     begining_motor_1_position = motor_1->shaftAngle();
     simulation_state_stablized = false;
@@ -18,27 +17,39 @@ void Simulation::newState() {
 }    
 
 bool Simulation::motionDetectedForMotor(ComponentID motor_id) {
+    float begining_position = motor_id == ComponentID::ZERO ? begining_motor_0_position : begining_motor_1_position;
     BLDCMotor* cur_motor = getMotor(motor_id);
     float current_position = cur_motor->shaftAngle();
-    // TODO(confirm) - implement the movement detection
-    if (abs(current_position - begining_motor_0_position) > movementThreshold) {
+    if (abs(current_position - begining_position) > movement_threshold) {
         return true;
     }
     return false;
 }
 
-void Simulation::SetMotorPosition(ComponentID motor_id, float position) {
+void Simulation::setMotorPosition(ComponentID motor_id, float position) {
     BLDCMotor* cur_motor = getMotor(motor_id);
-    // TODO(confirm) - is this correct?
     cur_motor->target = position;
 }
 
-bool Simulation::AtLocationForMotor(ComponentID motor_id) {
-    // TODO(confirm) - implement the motor location detection with threshold
+bool Simulation::atLocationForMotor(ComponentID motor_id, float position) {
+    BLDCMotor* cur_motor = getMotor(motor_id);
+    float current_position = cur_motor->shaftAngle();
+    if (abs(current_position - position) < stablized_threshold) {
+        return true;
+    }
     return false;
 }
 
-// Resting state for all components and waiting for motion
+void Simulation::moveMotor(ComponentID motor_id, float targetPosition, float targetVelocity) {
+    BLDCMotor* cur_motor = getMotor(motor_id);
+    cur_motor->velocity_limit = targetVelocity;
+    cur_motor->move(targetPosition);
+}
+
+ComponentID Simulation::selectRandomMotor() {
+    return random(0, 2) == 0 ? ComponentID::ZERO : ComponentID::ONE;
+}
+
 void Simulation::updateIDLE() {
     if (motionDetectedForMotor(ComponentID::ZERO) || motionDetectedForMotor(ComponentID::ONE)) {
         current = SimulationState::CALIBRATION;
@@ -46,17 +57,16 @@ void Simulation::updateIDLE() {
 }
 
 void Simulation::updateCALIBRATION() {
-    // hard set the calibration position
     calibrated_position = 0.0;
-    SetMotorPosition(ComponentID::ZERO, 0);
-    SetMotorPosition(ComponentID::ONE, 0);
+    setMotorPosition(ComponentID::ZERO, calibrated_position);
+    setMotorPosition(ComponentID::ONE, calibrated_position);
     current = SimulationState::RESET;
 }
 
 void Simulation::updateRESET() {
-    // TODO - set the motor to start rotating back to the calibrated position
-    // moveBrakeForMotor(motor_id, calibrated_position, 0.15, MountSide::RIGHT);
-    if (!AtLocationForMotor(ComponentID::ZERO) || !AtLocationForMotor(ComponentID::ONE)) {
+    moveMotor(ComponentID::ZERO, calibrated_position, reset_velocity);
+    moveMotor(ComponentID::ONE, calibrated_position, reset_velocity);
+    if (!atLocationForMotor(ComponentID::ZERO, calibrated_position) || !atLocationForMotor(ComponentID::ONE, calibrated_position)) {
         // do nothing and wait
     } else if (!simulation_state_stablized){
         simulation_state_stablized = true;
@@ -70,24 +80,20 @@ void Simulation::updateRANDOM_NOISE() {
     unsigned long current_time = _micros();
     if (motionDetectedForMotor(ComponentID::ZERO) || motionDetectedForMotor(ComponentID::ONE)) {
         current = SimulationState::RESET;
-    } else if ((current_time - newStateStartTime) > random_noise_rand) {
+    } else if ((current_time - newStateStartTime) > random_noise_wait) {
         current = SimulationState::INCIDENT;
     } else if((current_time - perLoopStartTime) > 1000000UL) {
         perLoopStartTime = current_time;
-        // TODO - implement shaking of brakes using a progressive timer (oren's hands shaked)
-        // https://docs.simplefoc.com/angle_loop
-        // invert the signal changing direction every half second to four seconds on each brake randomly 
-        // inverse angle in radians
-        targetPosition_0 = -targetPosition_0;   
-        targetPosition_1 = -targetPosition_1;
+        float new_target = calibrated_position + random_noise_threshold * last_random_noise_direction;
+        last_random_noise_direction = -last_random_noise_direction;
+        moveMotor(ComponentID::ZERO, new_target, random_noise_velocity);
+        moveMotor(ComponentID::ONE, new_target, random_noise_velocity);
     }
 }
 void Simulation::updateINCIDENT() {
-    SetMotorPosition(ComponentID::ZERO, 0);
-    // TODO - make motor moved random
-    // 0.5m, 0.15m/s
-    // moveBrake(0.5, 0.15, MountSide::RIGHT);
-    if (!AtLocationForMotor(ComponentID::ZERO)) {
+    incident_motor = selectRandomMotor();
+    moveMotor(incident_motor, incident_position, incident_velocity);
+    if (!atLocationForMotor(incident_motor, incident_position)) {
         // do nothing and wait
     } else if (!simulation_state_stablized){
         simulation_state_stablized = true;
@@ -96,44 +102,13 @@ void Simulation::updateINCIDENT() {
 }
 
 void Simulation::updateRESPONSE() {
+    ComponentID react_motor = incident_motor == ComponentID::ZERO ? ComponentID::ONE : ComponentID::ZERO;
     unsigned long current_time = _micros();
     if ((current_time - newStateStartTime) <= response_time_wait) {
-        // TODO - implement the other motor movement detection as user response time
-        if (motionDetectedForMotor(ComponentID::ONE)) { // there is user movement
+        if (motionDetectedForMotor(react_motor)) { // there is user movement
             current = SimulationState::RESET;
           } // no action taken otherwise
     } else { // no action within 3 seconds after motor arrival
-        // TODO - implement failure 
+        // TODO - implement failure by buzzing the motor or something
     }
 }
-
-bool motionDetectedForMotor(ComponentID motor) {
-    return true;
-}
-// TODO need to test
-//TODO - Rahul ... input is meters, output needs to be in radians
-// diameter 47mm or 0.047m
-// radius 0.0235m
-// circumference 2pi*r = 0.1476m = 2pi radians = 1 rotation
-// 1 Meter = 6.77 rotations or 42.54 radians
-void Simulation::moveBrake(float targetPosition, float targetVelocity, ComponentID motor) {
-  
-    BLDCMotor* bldcMotor = getMotor(motor);
-    int invert = 1;
-    if (motor == ComponentID::ZERO) { // TODO: check if invert condition is right
-        invert = -1;
-    }
-    bldcMotor->controller = MotionControlType::angle;
-    bldcMotor->velocity_limit = targetVelocity / 0.15; // TODO: check if we have to invert velocity
-    bldcMotor->move(targetPosition * invert);
-}
-
-/*
-MotorState Simulation::getMotorState() {}
-
-MotorState Simulation::getMotorStateGivenID(ComponentID motor) {}
-
-void Simulation::TrigerMotorToMoveToLocation(ComponentID motor) {}
-
-bool Simulation::AreMotorsStillAtLocationWithinTime(unsigned long current_time, unsigned long wait_time) {}
-*/

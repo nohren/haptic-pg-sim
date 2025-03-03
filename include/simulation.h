@@ -59,8 +59,10 @@ class Simulation {
         motor_1 = cur_motor_1;
     }
 
-
+    // Resting state for all components and waiting for motion
     void updateIDLE(); 
+
+    // Set target position on motors 
     void updateCALIBRATION();
     void updateRESET();
     void updateRANDOM_NOISE();
@@ -82,19 +84,13 @@ class Simulation {
     // ------------motor movement --------------
     bool motionDetectedForMotor(ComponentID motor_id);
 
-    void SetMotorPosition(ComponentID motor_id, float position);
+    void setMotorPosition(ComponentID motor_id, float position);
 
-    bool AtLocationForMotor(ComponentID motor_id);
+    bool atLocationForMotor(ComponentID motor_id, float position);
 
-/*
-  targetPosition
-    - reel down -- - values in meters from starting position
-    - reel up  -- + values in meters from the starting position
-  targetVelocity - in meters/second (d/t)
-  motor - motor 1 or 2
-  side - which side is the motor mounted on. CW or CCW conversion for out and in values.
-*/
-    void moveBrake(float targetPosition, float targetVelocity, ComponentID motor);
+    void moveMotor(ComponentID motor_id, float targetPosition, float targetVelocity);
+
+    ComponentID selectRandomMotor();
 
     // ------------tracker --------------
     unsigned long newStateStartTime = 0; // track time we entered a new current state
@@ -103,24 +99,20 @@ class Simulation {
 
     // ----------- parameters ------------ 
     float calibrated_position = 0.0;
-    unsigned long random_noise_rand = -1UL;
-    
+    ComponentID incident_motor = ComponentID::ZERO;
+    float incident_position = 20.0;
+
     unsigned long reset_state_wait = 5000000UL;
     unsigned long response_time_wait = 3000000UL;
-    float movementThreshold = _PI; // half a rotation
+    unsigned long random_noise_wait = -1UL;
 
-    //float currentPosition_0 = 0.0;
-    float targetPosition_0 = 0.0;
-    //float currentVelocity_0 = 0.0;
-    float targetVelocity_0 = 0.0;
-    //float currentPosition_1 = 0.0;
-    float targetPosition_1 = 0.0;
-    //float currentVelocity_1 = 0.0;
-    float targetVelocity_1 = 0.0;
-
-    //motor movement 
-    float targetAngle = 0.0;
-    float targetVoltage = 0.0;
+    float movement_threshold = 0.5 * _PI; // 1/4 rotation
+    float stablized_threshold = 0.1 * _PI; // 1/20 rotation
+    float random_noise_threshold = 0.2 * _PI; // 1/10 rotation
+    int last_random_noise_direction = 1;
+    float reset_velocity = 0.15;
+    float random_noise_velocity = 0.1;
+    float incident_velocity = 0.8;
 };
 
 #endif

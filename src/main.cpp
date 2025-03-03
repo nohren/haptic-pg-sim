@@ -117,6 +117,9 @@ void setup() {
 }
 
 void loop() {
+  motor_0.loopFOC();
+  motor_1.loopFOC();
+
   if (simulation.current != simulation.previous) {
     simulation.newState();
   }
