@@ -107,28 +107,25 @@ void Simulation::updateRESPONSE() {
     }
 }
 
+bool motionDetectedForMotor(ComponentID motor) {
+    return true;
+}
+// TODO need to test
 //TODO - Rahul ... input is meters, output needs to be in radians
 // diameter 47mm or 0.047m
 // radius 0.0235m
 // circumference 2pi*r = 0.1476m = 2pi radians = 1 rotation
 // 1 Meter = 6.77 rotations or 42.54 radians
 void Simulation::moveBrake(float targetPosition, float targetVelocity, ComponentID motor) {
-  targetAngle = targetPosition / 0.15
-  if (motor == ComponentID::ZERO) {
-    targetVelocity_0 = side == ComponentID::ZERO ? -targetVelocity : targetVelocity;
-    targetPosition_0 = side == ComponentID::ZERO ? -targetPosition: targetPosition;
-    //convert targetPosition meters to radians - 2pi radians or 6.28 is approx equal to 144mm
-    motor_0.controller = MotionControlType::angle;
-    motor_0.velocity_limit = targetVelocity / 0.15;
-    motor_0.move()
-  } else {
-    targetVelocity_1 = targetVelocity;
-    targetPosition_1 = side == ComponentID::ZERO ? targetPosition: -targetPosition;
-    //convert targetPosition meters to radians - 2pi radians or 6.28 is approx equal to 144mm
-    motor_1.controller = MotionControlType::angle;
-    motor_1.velocity_limit = targetVelocity_1 / 0.15;
-    motor_1.move()
-  }
+  
+    BLDCMotor* bldcMotor = getMotor(motor);
+    int invert = 1;
+    if (motor == ComponentID::ZERO) { // TODO: check if invert condition is right
+        invert = -1;
+    }
+    bldcMotor->controller = MotionControlType::angle;
+    bldcMotor->velocity_limit = targetVelocity / 0.15; // TODO: check if we have to invert velocity
+    bldcMotor->move(targetPosition * invert);
 }
 
 /*
