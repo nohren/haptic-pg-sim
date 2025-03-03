@@ -9,88 +9,101 @@ void Simulation::newState() {
     if (current == SimulationState::RANDOM_NOISE) {
       random_noise_rand = random(5, 26) * 1000000UL;
     }
+
+    // TODO(confirm) - record the beginning motor positions
+    begining_motor_0_position = motor_0->shaftAngle();
+    begining_motor_1_position = motor_1->shaftAngle();
+    simulation_state_stablized = false;
   }
 }    
 
+bool Simulation::motionDetectedForMotor(ComponentID motor_id) {
+    BLDCMotor* cur_motor = getMotor(motor_id);
+    float current_position = cur_motor->shaftAngle();
+    // TODO(confirm) - implement the movement detection
+    if (abs(current_position - begining_motor_0_position) > movementThreshold) {
+        return true;
+    }
+    return false;
+}
+
+void Simulation::SetMotorPosition(ComponentID motor_id, float position) {
+    BLDCMotor* cur_motor = getMotor(motor_id);
+    // TODO(confirm) - is this correct?
+    cur_motor->target = position;
+}
+
+bool Simulation::AtLocationForMotor(ComponentID motor_id) {
+    // TODO(confirm) - implement the motor location detection with threshold
+    return false;
+}
+
+// Resting state for all components and waiting for motion
 void Simulation::updateIDLE() {
-    /*
-    if (getMotorState() == MotorState::IDLE) {
-         current = SimulationState::CALIBRATION;
-    }*/
+    if (motionDetectedForMotor(ComponentID::ZERO) || motionDetectedForMotor(ComponentID::ONE)) {
+        current = SimulationState::CALIBRATION;
+    }
 }
 
 void Simulation::updateCALIBRATION() {
-    /*
-    unsigned long current_time = _micros();
-    // TODO - triger both motors to move to a specific position and if hand movement detected, continue in pulling/calibration
-    // If no movement detected for 5 seconds, go to RANDOM_NOISE
-    if (AreMotorsStillAtLocationWithinTime(current_time, calibration_wait)) {
-        current = SimulationState::RANDOM_NOISE;
-    } else {
-        
-    }
-    TrigerMotorToMoveToLocation(ComponentID::ZERO);
-    TrigerMotorToMoveToLocation(ComponentID::ONE);*/
-    if ((_micros() - newStateStartTime) > 5000000UL) {
-        current = SimulationState::RANDOM_NOISE;
-      } else if (false) { // TODO - implement motor movement detection (similar with IDLE)
+    // hard set the calibration position
+    calibrated_position = 0.0;
+    SetMotorPosition(ComponentID::ZERO, 0);
+    SetMotorPosition(ComponentID::ONE, 0);
+    current = SimulationState::RESET;
+}
+
+void Simulation::updateRESET() {
+    // TODO - set the motor to start rotating back to the calibrated position
+    // moveBrakeForMotor(motor_id, calibrated_position, 0.15, MountSide::RIGHT);
+    if (!AtLocationForMotor(ComponentID::ZERO) || !AtLocationForMotor(ComponentID::ONE)) {
+        // do nothing and wait
+    } else if (!simulation_state_stablized){
+        simulation_state_stablized = true;
         newStateStartTime = _micros();
-      }
+    } else if (_micros() - newStateStartTime > calibration_wait) {
+        current = SimulationState::RANDOM_NOISE;
+    }
 }
 
 void Simulation::updateRANDOM_NOISE() {
     unsigned long current_time = _micros();
-    if ((current_time - newStateStartTime) > random_noise_rand) {
+    if (motionDetectedForMotor(ComponentID::ZERO) || motionDetectedForMotor(ComponentID::ONE)) {
+        current = SimulationState::RESET;
+    } else if ((current_time - newStateStartTime) > random_noise_rand) {
         current = SimulationState::INCIDENT;
-      } else if((current_time - perLoopStartTime) > 1000000UL) {
+    } else if((current_time - perLoopStartTime) > 1000000UL) {
         perLoopStartTime = current_time;
         // TODO - implement shaking of brakes using a progressive timer (oren's hands shaked)
         // https://docs.simplefoc.com/angle_loop
         // invert the signal changing direction every half second to four seconds on each brake randomly 
         // inverse angle in radians
         targetPosition_0 = -targetPosition_0;   
-      }
+        targetPosition_1 = -targetPosition_1;
+    }
 }
 void Simulation::updateINCIDENT() {
-    // change target position value  
+    SetMotorPosition(ComponentID::ZERO, 0);
     // TODO - make motor moved random
     // 0.5m, 0.15m/s
-    moveBrake(0.5, 0.15, MountSide::RIGHT);
-    current = SimulationState::RESPONSE;
+    // moveBrake(0.5, 0.15, MountSide::RIGHT);
+    if (!AtLocationForMotor(ComponentID::ZERO)) {
+        // do nothing and wait
+    } else if (!simulation_state_stablized){
+        simulation_state_stablized = true;
+        current = SimulationState::RESPONSE;
+    }
 }
 
 void Simulation::updateRESPONSE() {
     unsigned long current_time = _micros();
-    // TODO - detect if motor has arrived incident location
-    bool arrived = false;
-    if (false) {
-        arrived = true;
-    }
-
-    if (!arrived || (current_time - newStateStartTime) <= 3000000UL) {
+    if ((current_time - newStateStartTime) <= 3000000UL) {
         // TODO - implement the other motor movement detection as user response time
-        if (false) { // there is user movement
-          // TODO - set success if the movement is greater than a threshold. i.e. non random movement; otherwise, no action taken
-          bool success = false;
-          if (success) {
-            // TODO - implement success by adding a new state reset and all reset state does is to bring the motors back to 
-            // their original position and then go to IDLE state. We only go to IDLE state if the motors are back to their original position physically
+        if (motionDetectedForMotor(ComponentID::ONE)) { // there is user movement
             current = SimulationState::RESET;
           } // no action taken otherwise
-        }
-
-        if (!arrived) {
-          newStateStartTime = current_time; // reset the timer
-        }
-      } else { // no action within 3 seconds after motor arrival
+    } else { // no action within 3 seconds after motor arrival
         // TODO - implement failure 
-      }
-}
-
-void Simulation::updateRESET() {
-    // TODO - detect if motor has arrived at the original position
-    if (false) {
-        current = SimulationState::IDLE;
     }
 }
 

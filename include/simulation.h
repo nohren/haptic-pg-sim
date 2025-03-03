@@ -4,13 +4,19 @@
 #include <SimpleFOC.h>
 #include "math.h"
 
+/*
+IDLE---->CALIBRATION---->RESET---->RANDOM_NOISE---->INCIDENT---->RESPONSE
+                           ^             |                           |
+                           |_____________|___________________________|
+
+*/
 enum class SimulationState : uint8_t {
   IDLE = 0,
   CALIBRATION,
+  RESET,
   RANDOM_NOISE,
   INCIDENT,
   RESPONSE,
-  RESET,
   INVALID
 };
 
@@ -21,10 +27,9 @@ enum class MountSide {
 };
 
 enum class MotorState {
-  IDLE,
   MOVING,
-  OFFSET,
-  STOPPED
+  STOPPED,
+  DONT_CARE
 };
 
 enum class ComponentID {
@@ -45,6 +50,10 @@ class Simulation {
 
     SimulationState current = SimulationState::IDLE;
     SimulationState previous = SimulationState::INVALID;
+    bool simulation_state_stablized = false;
+
+    float begining_motor_0_position;
+    float begining_motor_1_position;
 
     void init(Encoder* cur_encoder_0, Encoder* cur_encoder_1, BLDCDriver* cur_driver_0, BLDCDriver* cur_driver_1, BLDCMotor* cur_motor_0, BLDCMotor* cur_motor_1) {
         encoder_0 = cur_encoder_0;
@@ -58,10 +67,10 @@ class Simulation {
 
     void updateIDLE(); 
     void updateCALIBRATION();
+    void updateRESET();
     void updateRANDOM_NOISE();
     void updateINCIDENT();
     void updateRESPONSE();
-    void updateRESET();
     void newState();
 
   private:
@@ -76,18 +85,13 @@ class Simulation {
     }
 
     // ------------motor movement --------------
+    bool motionDetectedForMotor(ComponentID motor_id);
 
-    // TODO - compare motor.shaftAngle with command of motor.  I.e is there torque being applied?
-    // this can detect pull forces
-    // movement has to be intentianal
-    MotorState getMotorState();
+    void SetMotorPosition(ComponentID motor_id, float position);
 
-    MotorState getMotorStateGivenID(ComponentID motor);
+    bool AtLocationForMotor(ComponentID motor_id);
 
-    void TriggerMotorToMoveToLocation(ComponentID motor);
-
-    bool AreMotorsStillAtLocationWithinTime(unsigned long current_time, unsigned long wait_time);
-    /*
+/*
   targetPosition
     - reel down -- - values in meters from starting position
     - reel up  -- + values in meters from the starting position
@@ -99,12 +103,15 @@ class Simulation {
 
     // ------------tracker --------------
     unsigned long newStateStartTime = 0; // track time we entered a new current state
-    unsigned long perLoopStartTime = 0; // track time we enter a new loo
-
-    unsigned long calibration_wait = 5000000UL;
+    unsigned long perLoopStartTime = 0; // track time we enter a new loop
     unsigned long random_noise_rand = -1UL;
 
     // ----------- parameters ------------ 
+    float calibrated_position = 0.0;
+    unsigned long calibration_wait = 5000000UL;
+    unsigned long response_time = 3000000UL;
+    float movementThreshold = _PI; // half a rotation
+
     bool phaseComplete = false;
     //float currentPosition_0 = 0.0;
     float targetPosition_0 = 0.0;

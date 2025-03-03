@@ -123,11 +123,12 @@ void loop() {
 
   switch (simulation.current){
     case SimulationState::IDLE:
-      Serial.println("Idle State");
+      Serial.println("IDLE State");
       simulation.updateIDLE();
       break;
     case SimulationState::CALIBRATION:
-      Serial.println("Calibration State");
+      Serial.println("CALIBRATION State");
+      
       simulation.updateCALIBRATION();
       break;
     case SimulationState::RANDOM_NOISE:
