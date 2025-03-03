@@ -119,7 +119,7 @@ void setup() {
 void loop() {
   motor_0.loopFOC();
   motor_1.loopFOC();
-
+  /*
   if (simulation.current != simulation.previous) {
     simulation.newState();
   }
@@ -155,17 +155,8 @@ void loop() {
       break;
     }
 
-  // encoder.update();
-  // Serial.print(encoder.getAngle());
-  // Serial.print("\t");
-  // Serial.println(encoder.getVelocity());
-
-  // motor.loopFOC();
-  // motor.velocity_limit = targetVelocity_0;
-  // motor.move(targetPosition_0);
-  //motor.monitor();
-  // user communication
-  //command.run();
+  */
+ motor_0.move(20.0);
 }
 
 //------------------------------ENCODER HELPER--------------------------
