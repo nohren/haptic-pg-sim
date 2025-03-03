@@ -46,7 +46,6 @@ class Simulation {
 
     SimulationState current = SimulationState::IDLE;
     SimulationState previous = SimulationState::INVALID;
-    bool simulation_state_stablized = false;
 
     float begining_motor_0_position;
     float begining_motor_1_position;
@@ -100,12 +99,14 @@ class Simulation {
     // ------------tracker --------------
     unsigned long newStateStartTime = 0; // track time we entered a new current state
     unsigned long perLoopStartTime = 0; // track time we enter a new loop
-    unsigned long random_noise_rand = -1UL;
+    bool simulation_state_stablized = false;
 
     // ----------- parameters ------------ 
     float calibrated_position = 0.0;
-    unsigned long calibration_wait = 5000000UL;
-    unsigned long response_time = 3000000UL;
+    unsigned long random_noise_rand = -1UL;
+    
+    unsigned long reset_state_wait = 5000000UL;
+    unsigned long response_time_wait = 3000000UL;
     float movementThreshold = _PI; // half a rotation
 
     bool phaseComplete = false;
