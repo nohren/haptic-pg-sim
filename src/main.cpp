@@ -128,7 +128,6 @@ void loop() {
       break;
     case SimulationState::CALIBRATION:
       Serial.println("CALIBRATION State");
-      
       simulation.updateCALIBRATION();
       break;
     case SimulationState::RANDOM_NOISE:
@@ -153,7 +152,6 @@ void loop() {
       break;
     }
 
-    // TODO
   // encoder.update();
   // Serial.print(encoder.getAngle());
   // Serial.print("\t");
