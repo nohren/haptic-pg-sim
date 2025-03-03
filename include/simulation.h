@@ -21,10 +21,6 @@ enum class SimulationState : uint8_t {
 };
 
 //------------------------------MOTOR----------------------------
-enum class MountSide {
-  LEFT,
-  RIGHT
-};
 
 enum class MotorState {
   MOVING,
@@ -33,8 +29,8 @@ enum class MotorState {
 };
 
 enum class ComponentID {
-  ZERO,
-  ONE
+  ZERO, // LEFT MOTOR
+  ONE // RIGHT MOTOR
 };
 
 class Simulation {
@@ -98,7 +94,7 @@ class Simulation {
   motor - motor 1 or 2
   side - which side is the motor mounted on. CW or CCW conversion for out and in values.
 */
-    void moveBrake(float targetPosition, float targetVelocity, MountSide side, ComponentID motor = ComponentID::ZERO);
+    void moveBrake(float targetPosition, float targetVelocity, ComponentID motor);
 
     // ------------tracker --------------
     unsigned long newStateStartTime = 0; // track time we entered a new current state
