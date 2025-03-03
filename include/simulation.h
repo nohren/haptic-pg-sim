@@ -109,7 +109,6 @@ class Simulation {
     unsigned long response_time_wait = 3000000UL;
     float movementThreshold = _PI; // half a rotation
 
-    bool phaseComplete = false;
     //float currentPosition_0 = 0.0;
     float targetPosition_0 = 0.0;
     //float currentVelocity_0 = 0.0;
