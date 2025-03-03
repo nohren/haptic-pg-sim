@@ -84,7 +84,7 @@ class Simulation {
 
     void SetMotorPosition(ComponentID motor_id, float position);
 
-    bool AtLocationForMotor(ComponentID motor_id);
+    bool AtLocationForMotor(ComponentID motor_id, float position);
 
 /*
   targetPosition
