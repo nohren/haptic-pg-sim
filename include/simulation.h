@@ -84,7 +84,7 @@ class Simulation {
 
     MotorState getMotorStateGivenID(ComponentID motor);
 
-    void TrigerMotorToMoveToLocation(ComponentID motor);
+    void TriggerMotorToMoveToLocation(ComponentID motor);
 
     bool AreMotorsStillAtLocationWithinTime(unsigned long current_time, unsigned long wait_time);
     /*
