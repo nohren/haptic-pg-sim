@@ -10,10 +10,6 @@ void Simulation::newState() {
     if (current == SimulationState::RANDOM_NOISE) {
       random_noise_wait = random(10, 26) * 1000000UL;
       perLoopStartTime = newStateStartTime;
-
-      // make sure both motors are at the same calibrated position
-      Serial.println(motor_0->shaftAngle());
-      // Serial.println(motor_0->shaftAngle());
     }
 
     begining_motor_0_position = motor_0->shaftAngle();
@@ -80,18 +76,22 @@ void Simulation::updateCALIBRATION() {
         simulation_state_stablized = true;
         newStateStartTime = _micros();
     } else if (_micros() - newStateStartTime > calibration_wait) {
+        Serial.println("Calibration for motor 0 stabled at position: ");
+        Serial.println(motor_0->shaftAngle());
+        //Serial.println("Calibration for motor 1 stabled at position: ");
+        //Serial.println(motor_1->shaftAngle());
         current = SimulationState::RANDOM_NOISE;
     }
 }
 
 void Simulation::updateRANDOM_NOISE() {
     unsigned long current_time = _micros();
-    //if (motionDetectedForMotor(ComponentID::ZERO) || motionDetectedForMotor(ComponentID::ONE)) {
     if ((current_time - newStateStartTime) > random_noise_wait) {
         current = SimulationState::INCIDENT;
     } else if((current_time - perLoopStartTime) > random_noise_interval) {
         perLoopStartTime = current_time;
         float new_target = calibrated_position + random_noise_threshold * last_random_noise_direction;
+        Serial.println("Random noise new target position per second: ");
         Serial.println(new_target);
         last_random_noise_direction = -last_random_noise_direction;
         moveMotor(ComponentID::ZERO, new_target, random_noise_velocity, random_noise_voltage);
@@ -105,6 +105,8 @@ void Simulation::updateINCIDENT() {
         // do nothing and wait
     } else if (!simulation_state_stablized){
         simulation_state_stablized = true;
+        Serial.println("Incident motor has arrived at the incident position: ");
+        Serial.println(getMotor(incident_motor)->shaftAngle());
         current = SimulationState::RESPONSE;
     }
 }
@@ -113,7 +115,8 @@ void Simulation::updateRESPONSE() {
     ComponentID react_motor = incident_motor == ComponentID::ZERO ? ComponentID::ONE : ComponentID::ZERO;
     unsigned long current_time = _micros();
     if ((current_time - newStateStartTime) <= response_time_wait) {
-        if (motionDetectedForMotor(react_motor)) { // there is user movement
+        if (motionDetectedForMotor(react_motor)) { 
+            // there is user movement; for simplicity, we don't care how far the movement is
             current = SimulationState::CALIBRATION;
         } // no action taken otherwise
     } else { // no action within 3 seconds after motor arrival
