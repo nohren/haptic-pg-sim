@@ -4,8 +4,8 @@
 // interrupt routine initialisation
 void doA_0(void);
 void doB_0(void);
-void doA_1(void);
-void doB_1(void);
+//void doA_1(void);
+//void doB_1(void);
 // void doIndex_0(void);
 // void doIndex_1(void);
 
