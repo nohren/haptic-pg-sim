@@ -9,6 +9,8 @@ void Simulation::newState() {
     // random noise wait time
     if (current == SimulationState::RANDOM_NOISE) {
       random_noise_wait = random(10, 26) * 1000000UL;
+      Serial.print("Random noise wait time: ");
+      Serial.println(random_noise_wait);
       perLoopStartTime = newStateStartTime;
     }
 
@@ -68,7 +70,7 @@ void Simulation::updateCALIBRATION() {
     setMotorPosition(ComponentID::ZERO, calibrated_position);
     //setMotorPosition(ComponentID::ONE, calibrated_position);
     moveMotor(ComponentID::ZERO, calibrated_position, calibration_velocity, calibration_voltage);
-    //moveMotor(ComponentID::ONE, calibrated_position, reset_velocity);
+    //moveMotor(ComponentID::ONE, calibrated_position, calibration_velocity, calibration_voltage);
     //if (!atLocationForMotor(ComponentID::ZERO, calibrated_position) || !atLocationForMotor(ComponentID::ONE, calibrated_position)) {
     if (!atLocationForMotor(ComponentID::ZERO, calibrated_position)) {
         // do nothing and wait
@@ -95,7 +97,7 @@ void Simulation::updateRANDOM_NOISE() {
         Serial.println(new_target);
         last_random_noise_direction = -last_random_noise_direction;
         moveMotor(ComponentID::ZERO, new_target, random_noise_velocity, random_noise_voltage);
-        //moveMotor(ComponentID::ONE, new_target, random_noise_velocity);
+        //moveMotor(ComponentID::ONE, new_target, random_noise_velocity, random_noise_voltage);
     }
 }
 void Simulation::updateINCIDENT() {

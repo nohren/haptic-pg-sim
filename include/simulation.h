@@ -31,15 +31,9 @@ inline String SimulationStateToString(SimulationState s) {
 }
 //------------------------------MOTOR----------------------------
 
-enum class MotorState {
-  MOVING,
-  STOPPED,
-  DONT_CARE
-};
-
 enum class ComponentID {
-  ZERO, // LEFT MOTOR
-  ONE // RIGHT MOTOR
+  ZERO, 
+  ONE 
 };
 
 class Simulation {
