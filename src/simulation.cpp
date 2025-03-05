@@ -66,19 +66,24 @@ void Simulation::updateIDLE() {
 }
 
 void Simulation::updateCALIBRATION() {
-    calibrated_position = 0.0;
-    setMotorPosition(ComponentID::ZERO, calibrated_position);
-    //setMotorPosition(ComponentID::ONE, calibrated_position);
-    moveMotor(ComponentID::ZERO, calibrated_position, calibration_velocity, calibration_voltage);
-    //moveMotor(ComponentID::ONE, calibrated_position, calibration_velocity, calibration_voltage);
-    //if (!atLocationForMotor(ComponentID::ZERO, calibrated_position) || !atLocationForMotor(ComponentID::ONE, calibrated_position)) {
-    if (!atLocationForMotor(ComponentID::ZERO, calibrated_position)) {
-        // do nothing and wait
-    } else if (!simulation_state_stablized){
-        simulation_state_stablized = true;
-        newStateStartTime = _micros();
-    } else if (_micros() - newStateStartTime > calibration_wait) {
+    motor_0->controller = MotionControlType::velocity;
+    motor_0->move(3);
+    // calibrated_position = 0.0;
+    // setMotorPosition(ComponentID::ZERO, calibrated_position);
+    // //setMotorPosition(ComponentID::ONE, calibrated_position);
+    // moveMotor(ComponentID::ZERO, calibrated_position, calibration_velocity, calibration_voltage);
+    // //moveMotor(ComponentID::ONE, calibrated_position, calibration_velocity, calibration_voltage);
+    // //if (!atLocationForMotor(ComponentID::ZERO, calibrated_position) || !atLocationForMotor(ComponentID::ONE, calibrated_position)) {
+    // if (!atLocationForMotor(ComponentID::ZERO, calibrated_position)) {
+    //     // do nothing and wait
+    // } else if (!simulation_state_stablized){
+    //     simulation_state_stablized = true;
+    //     newStateStartTime = _micros();
+    if (_micros() - newStateStartTime > calibration_wait) {
+        motor_0->move(0);
+        motor_0->controller = MotionControlType::angle;
         Serial.println("Calibration for motor 0 stabled at position: ");
+        calibrated_position = motor_0->shaftAngle();
         Serial.println(motor_0->shaftAngle());
         //Serial.println("Calibration for motor 1 stabled at position: ");
         //Serial.println(motor_1->shaftAngle());
@@ -88,17 +93,22 @@ void Simulation::updateCALIBRATION() {
 
 void Simulation::updateRANDOM_NOISE() {
     unsigned long current_time = _micros();
-    if ((current_time - newStateStartTime) > random_noise_wait) {
-        current = SimulationState::INCIDENT;
-    } else if((current_time - perLoopStartTime) > random_noise_interval) {
+    motor_0->controller = MotionControlType::velocity_openloop;
+    float vel = 0.0;
+    if((current_time - perLoopStartTime) > random_noise_interval) {
         perLoopStartTime = current_time;
-        float new_target = calibrated_position + random_noise_threshold * last_random_noise_direction;
-        Serial.println("Random noise new target position per second: ");
-        Serial.println(new_target);
-        last_random_noise_direction = -last_random_noise_direction;
-        moveMotor(ComponentID::ZERO, new_target, random_noise_velocity, random_noise_voltage);
+        // float new_target = calibrated_position + random_noise_threshold * last_random_noise_direction;
+        // Serial.println("Random noise new target position per second: ");
+        // Serial.println(new_target);
+        // last_random_noise_direction = -last_random_noise_direction;
+        // moveMotor(ComponentID::ZERO, new_target, random_noise_velocity, random_noise_voltage);
         //moveMotor(ComponentID::ONE, new_target, random_noise_velocity, random_noise_voltage);
+        motor_0->voltage_limit = 11;
+        vel = 2 * last_random_noise_direction;
+        last_random_noise_direction = -last_random_noise_direction;
+        Serial.println(vel);
     }
+    motor_0->move(vel);
 }
 void Simulation::updateINCIDENT() {
     // incident_motor = selectRandomMotor();

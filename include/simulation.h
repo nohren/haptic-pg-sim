@@ -117,7 +117,7 @@ class Simulation {
     float calibrated_position = 0.0;
     float incident_position = 10.0;
 
-    unsigned long calibration_wait = 5000000UL;
+    unsigned long calibration_wait = 10000000UL;
     unsigned long response_time_wait = 3000000UL;
     unsigned long random_noise_wait = -1UL;
     unsigned long random_noise_interval = 2000000UL;
