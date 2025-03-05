@@ -95,7 +95,9 @@ void Simulation::updateRANDOM_NOISE() {
     unsigned long current_time = _micros();
     motor_0->controller = MotionControlType::velocity_openloop;
     float vel = 0.0;
-    if((current_time - perLoopStartTime) > random_noise_interval) {
+    if (false/*(current_time - newStateStartTime) > random_noise_wait*/) {
+        current = SimulationState::INCIDENT;
+    } else if((current_time - perLoopStartTime) > random_noise_interval) {
         perLoopStartTime = current_time;
         // float new_target = calibrated_position + random_noise_threshold * last_random_noise_direction;
         // Serial.println("Random noise new target position per second: ");
