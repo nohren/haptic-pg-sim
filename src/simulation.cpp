@@ -20,8 +20,8 @@ void Simulation::newState() {
   }
 }    
 
-bool Simulation::motionDetectedForMotor(ComponentID motor_id) {
-    float begining_position = motor_id == ComponentID::ZERO ? begining_motor_0_position : begining_motor_1_position;
+bool Simulation::motionDetectedForMotor(ComponentID motor_id, float previousPos = 0.0f) {
+    float begining_position = previousPos == 0.0f ? motor_id == ComponentID::ZERO ? begining_motor_0_position : begining_motor_1_position: previousPos;
     BLDCMotor* cur_motor = getMotor(motor_id);
     float current_position = cur_motor->shaftAngle();
     if (abs(current_position - begining_position) > movement_threshold) {
@@ -79,7 +79,9 @@ void Simulation::updateCALIBRATION() {
     // } else if (!simulation_state_stablized){
     //     simulation_state_stablized = true;
     //     newStateStartTime = _micros();
-    if (_micros() - newStateStartTime > calibration_wait) {
+    if (motionDetectedForMotor(ComponentID::ZERO, motor_0->shaft_angle)) { //test this should keep resetting time until motor stays within threshold 
+        newStateStartTime = _micros();
+    } else if ((_micros() - newStateStartTime) > calibration_wait) {
         motor_0->move(0);
         motor_0->controller = MotionControlType::angle;
         Serial.println("Calibration for motor 0 stabled at position: ");
@@ -93,26 +95,29 @@ void Simulation::updateCALIBRATION() {
 
 void Simulation::updateRANDOM_NOISE() {
     unsigned long current_time = _micros();
-    motor_0->controller = MotionControlType::velocity_openloop;
-    float vel = 0.0;
-    if (false/*(current_time - newStateStartTime) > random_noise_wait*/) {
+    // motor_0->controller = MotionControlType::velocity_openloop;
+    // float vel = 0.0;
+    if ((current_time - newStateStartTime) > random_noise_wait) {
         current = SimulationState::INCIDENT;
     } else if((current_time - perLoopStartTime) > random_noise_interval) {
+        //do nothing for now
+
         perLoopStartTime = current_time;
-        // float new_target = calibrated_position + random_noise_threshold * last_random_noise_direction;
-        // Serial.println("Random noise new target position per second: ");
-        // Serial.println(new_target);
+        // // float new_target = calibrated_position + random_noise_threshold * last_random_noise_direction;
+        // // Serial.println("Random noise new target position per second: ");
+        // // Serial.println(new_target);
+        // // last_random_noise_direction = -last_random_noise_direction;
+        // // moveMotor(ComponentID::ZERO, new_target, random_noise_velocity, random_noise_voltage);
+        // //moveMotor(ComponentID::ONE, new_target, random_noise_velocity, random_noise_voltage);
+        // motor_0->voltage_limit = 11;
+        // vel = 2 * last_random_noise_direction;
         // last_random_noise_direction = -last_random_noise_direction;
-        // moveMotor(ComponentID::ZERO, new_target, random_noise_velocity, random_noise_voltage);
-        //moveMotor(ComponentID::ONE, new_target, random_noise_velocity, random_noise_voltage);
-        motor_0->voltage_limit = 11;
-        vel = 2 * last_random_noise_direction;
-        last_random_noise_direction = -last_random_noise_direction;
-        Serial.println(vel);
+        // Serial.println(vel);
     }
-    motor_0->move(vel);
+    //motor_0->move(vel);
 }
-void Simulation::updateINCIDENT() {
+//incident should be good, just test
+void Simulation::updateINCIDENT() { 
     // incident_motor = selectRandomMotor();
     moveMotor(incident_motor, incident_position, incident_velocity, incident_voltage);
     if (!atLocationForMotor(incident_motor, incident_position)) {
@@ -127,13 +132,18 @@ void Simulation::updateINCIDENT() {
 
 void Simulation::updateRESPONSE() {
     ComponentID react_motor = incident_motor == ComponentID::ZERO ? ComponentID::ONE : ComponentID::ZERO;
+    BLDCMotor* cur_motor = getMotor(react_motor);
     unsigned long current_time = _micros();
     if ((current_time - newStateStartTime) <= response_time_wait) {
-        if (motionDetectedForMotor(react_motor)) { 
+
+        if (motionDetectedForMotor(react_motor, cur_motor->shaft_angle)) { 
             // there is user movement; for simplicity, we don't care how far the movement is
-            current = SimulationState::CALIBRATION;
+            Serial.println("Passed!");
+            current = SimulationState::IDLE;
         } // no action taken otherwise
     } else { // no action within 3 seconds after motor arrival
         // TODO - implement failure by buzzing the motor or something
+        Serial.println("failed!");
+        current = SimulationState::CALIBRATION;
     }
 }

@@ -98,7 +98,7 @@ class Simulation {
     }
 
     // ------------motor movement --------------
-    bool motionDetectedForMotor(ComponentID motor_id);
+    bool motionDetectedForMotor(ComponentID motor_id, float previousPos);
 
     void setMotorPosition(ComponentID motor_id, float position);
 
