@@ -8,12 +8,13 @@ SensorState sv; //  allocated stack
 float targetAngle = 0.0;
 
 //------------------------------ENCODER--------------------------
-Encoder encoder = Encoder(2, 3, 500);
+Encoder encoder = Encoder(2, 3, 2048);
 
 
 //----------------------------------MOTOR-----------------------
 //SensorState sensorPointer = &sensorState; 
 //8 is enable, these pin numbers are on the back of the motor driver corresponding to a,b,c
+//BLDCDriver3PWM driver = BLDCDriver3PWM(3, 10, 11, 8);
 BLDCDriver3PWM driver = BLDCDriver3PWM(5, 9, 6, 8);
 
 // motor info!
@@ -62,6 +63,7 @@ void setup() {
     Serial.println("Driver init failed!");
     return;
   }
+  motor.linkSensor(&encoder);
   motor.linkDriver(&driver);
 
   // limiting motor movements
@@ -71,8 +73,8 @@ void setup() {
 
   //max current 1.3A for this motor
   //1.3A > 5 / 5.6
-  motor.voltage_limit = 5;   // [V]
-
+  motor.voltage_limit = 3;   // [V]
+  motor.velocity_limit = 10;
    // open loop control config
   motor.controller = MotionControlType::velocity_openloop;
 
@@ -96,19 +98,22 @@ void setup() {
 }
 
 void loop() {
-  bool currentButtonState = digitalRead(SAFETY_PIN);
-  if (sv.lastButtonState == HIGH && currentButtonState == LOW) {
-    // toggle motor state
-    sv.motorOn = !sv.motorOn;
-  }
-  sv.lastButtonState = currentButtonState;
+  // bool currentButtonState = digitalRead(SAFETY_PIN);
+  // if (sv.lastButtonState == HIGH && currentButtonState == LOW) {
+  //   // toggle motor state
+  //   sv.motorOn = !sv.motorOn;
+  // }
+  // sv.lastButtonState = currentButtonState;
   //Serial.println(sv.motorOn);
 
-  updateStuff();
-  
-  // if (sv.motorOn == 1) { //buggy
-  // }
-  // motor.move();
+  //updateStuff();
+  encoder.update();
+  float currentAngle = encoder.getAngle();
+  float currentVelocity = encoder.getVelocity();
+  Serial.print(currentAngle);
+  Serial.print("\t");
+  Serial.println();
+  motor.move();
 
   // user communication
   command.run();
@@ -130,9 +135,9 @@ void updateStuff() {
   encoder.update();
   float currentAngle = encoder.getAngle();
   float currentVelocity = encoder.getVelocity();
-  // Serial.print(currentAngle);
-  // Serial.print("\t");
-  // Serial.println();
+  Serial.print(currentAngle);
+  Serial.print("\t");
+  Serial.println();
 
   //if current angle is not equal to target angle, go to target angle
   //positive voltage is CCW
