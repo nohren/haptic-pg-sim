@@ -31,10 +31,10 @@ bool Simulation::motionDetectedForReactMotor(ComponentID motor_id) {
     return false;
 }
 
-void Simulation::setMotorPosition(ComponentID motor_id, float position) {
-    BLDCMotor* cur_motor = getMotor(motor_id);
-    cur_motor->target = position;
-}
+// void Simulation::setMotorPosition(ComponentID motor_id, float position) {
+//     BLDCMotor* cur_motor = getMotor(motor_id);
+//     cur_motor->target = position;
+// }
 
 bool Simulation::atLocationForMotor(ComponentID motor_id, float position) {
     BLDCMotor* cur_motor = getMotor(motor_id);
@@ -45,12 +45,12 @@ bool Simulation::atLocationForMotor(ComponentID motor_id, float position) {
     return false;
 }
 
-void Simulation::moveMotor(ComponentID motor_id, float targetPosition, float targetVelocity, float targetVoltage) {
-    BLDCMotor* cur_motor = getMotor(motor_id);
-    cur_motor->voltage_limit = targetVoltage;
-    cur_motor->velocity_limit = targetVelocity;
-    cur_motor->move(targetPosition);
-}
+// void Simulation::moveMotor(ComponentID motor_id, float targetPosition, float targetVelocity, float targetVoltage) {
+//     BLDCMotor* cur_motor = getMotor(motor_id);
+//     cur_motor->voltage_limit = targetVoltage;
+//     cur_motor->velocity_limit = targetVelocity;
+//     cur_motor->move(targetPosition);
+// }
 
 ComponentID Simulation::selectRandomMotor() {
     return random(0, 2) == 0 ? ComponentID::ZERO : ComponentID::ONE;
@@ -136,7 +136,7 @@ void Simulation::updateINCIDENT() {
     if (!simulation_state_stablized) {
        move = incidentPos;
     }
-    //moveMotor(incident_motor, incident_position, incident_velocity, incident_voltage);
+ 
     if (atLocationForMotor(incident_motor, incidentPos)) {
         simulation_state_stablized = true;
         Serial.println("Incident motor has arrived at the incident position: ");

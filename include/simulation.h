@@ -50,8 +50,8 @@ class Simulation {
     SimulationState current = SimulationState::CALIBRATION; //changed to calibration
     SimulationState previous = SimulationState::INVALID;
 
-    float begining_motor_0_position;
-    float begining_motor_1_position;
+    // float begining_motor_0_position;
+    // float begining_motor_1_position;
     float previous_position_0 = 0.0;
     float previous_position_1 = 0.0;
     float move = 0.0;
@@ -105,11 +105,11 @@ class Simulation {
 
     bool motionDetectedForReactMotor(ComponentID motor_id);
 
-    void setMotorPosition(ComponentID motor_id, float position);
+    // void setMotorPosition(ComponentID motor_id, float position);
 
     bool atLocationForMotor(ComponentID motor_id, float position);
 
-    void moveMotor(ComponentID motor_id, float targetPosition, float targetVelocity, float targetVoltage);
+    // void moveMotor(ComponentID motor_id, float targetPosition, float targetVelocity, float targetVoltage);
 
     ComponentID selectRandomMotor();
 
@@ -123,7 +123,7 @@ class Simulation {
     // float previousPosition_1 = 0.0;
     float calibrated_position_0 = 0.0;
     float calibrated_position_1 = 0.0;
-    float incident_position = 10.0;
+    float incident_position = 10.0; //use this at some point
 
     unsigned long calibration_wait = 1500000UL;
     unsigned long response_time_wait = 3000000UL;
@@ -131,25 +131,28 @@ class Simulation {
     unsigned long random_noise_interval = 500000UL;
     unsigned long idle_interval = 500000UL;
 
-    //depends how fast we are sampling and how accurate the encoder
+    //depends how fast we are sampling and how accurate the encoder is.
+    //bool motionDetectedForMotor -- detects any motion at all.
     float movement_threshold = 0.005;
+
+    //bool motionDetectedForReactMotor -- detects a large motion.
     float response_threshold = 2 *_PI; //greater than 1 revolution
 
-    // within 1/20 rotation is considered stable position
+    //bool atLocationForMotor -- for motor moving on its own into a range
     float stablized_threshold = 0.1 * _PI; // 1/20 rotation
 
     // move back and forth within 1/10 rotation
     float random_noise_threshold = 0.2 * _PI; // 1/10 rotation
     int last_random_noise_direction = 1;
 
-    float calibration_voltage = 11.0;
-    float calibration_velocity = 4.0;
-    float random_noise_voltage = 5.0;
-    float random_noise_velocity = 10.0;
-    float incident_voltage = 10.0;
-    float incident_velocity = 10.0;
-    float response_voltage = 5.0;
-    float response_velocity = 10.0;
+    // float calibration_voltage = 11.0;
+    // float calibration_velocity = 4.0;
+    // float random_noise_voltage = 5.0;
+    // float random_noise_velocity = 10.0;
+    // float incident_voltage = 10.0;
+    // float incident_velocity = 10.0;
+    // float response_voltage = 5.0;
+    // float response_velocity = 10.0;
 
     ComponentID incident_motor = ComponentID::ZERO;
 };
