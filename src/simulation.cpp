@@ -21,6 +21,16 @@ bool Simulation::motionDetectedForMotor(ComponentID motor_id) {
     return false;
 }
 
+bool Simulation::motionDetectedForReactMotor(ComponentID motor_id) {
+    float previous_position = motor_id == ComponentID::ZERO ? calibrated_position_0 : calibrated_position_1;
+    BLDCMotor* cur_motor = getMotor(motor_id);
+    float current_position = cur_motor->shaftAngle();
+    if (abs(current_position - previous_position) > response_threshold) {
+        return true;
+    }
+    return false;
+}
+
 void Simulation::setMotorPosition(ComponentID motor_id, float position) {
     BLDCMotor* cur_motor = getMotor(motor_id);
     cur_motor->target = position;
@@ -87,8 +97,8 @@ void Simulation::updateCALIBRATION() {
         if (!simulation_state_stablized) {
             Serial.println("Calibration for motor 0 stable at position: ");
             motor_0->controller = MotionControlType::angle;
-            calibrated_position = motor_0->shaftAngle();
-            move = calibrated_position;
+            calibrated_position_0 = motor_0->shaftAngle();
+            move = calibrated_position_0;
             simulation_state_stablized = true;
         }
 
@@ -121,7 +131,8 @@ void Simulation::updateRANDOM_NOISE() {
 
 void Simulation::updateINCIDENT() { 
     // incident_motor = selectRandomMotor();
-    float incidentPos = calibrated_position + 15.0f;
+    //generalize to incident motor later
+    float incidentPos = calibrated_position_0 + 15.0f;
     if (!simulation_state_stablized) {
        move = incidentPos;
     }
@@ -135,19 +146,19 @@ void Simulation::updateINCIDENT() {
 }
 
 void Simulation::updateRESPONSE() {
-    ComponentID react_motor = incident_motor == ComponentID::ZERO ? ComponentID::ONE : ComponentID::ZERO;
+    //add back with a working react motor!
+    //ComponentID react_motor = incident_motor == ComponentID::ZERO ? ComponentID::ONE : ComponentID::ZERO;
+    ComponentID react_motor = incident_motor;
     BLDCMotor* cur_motor = getMotor(react_motor);
     unsigned long current_time = _micros();
-    if ((current_time - newStateStartTime) <= response_time_wait) {
-
-        if (motionDetectedForMotor(react_motor)) { 
-            // there is user movement; for simplicity, we don't care how far the movement is
+    if ((current_time - newStateStartTime) > response_time_wait) {
+        print("failed!");
+        current = SimulationState::CALIBRATION;
+    } else {
+        if (motionDetectedForReactMotor(react_motor)) { 
+            //too much pull can break the FOC and motor goes wild
             Serial.println("Passed!");
             current = SimulationState::IDLE;
-        } // no action taken otherwise
-    } else { // no action within 3 seconds after motor arrival
-        // TODO - implement failure by buzzing the motor or something
-        Serial.println("failed!");
-        current = SimulationState::CALIBRATION;
+        } 
     }
 }

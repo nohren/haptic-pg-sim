@@ -103,6 +103,8 @@ class Simulation {
     // ------------motor movement --------------
     bool motionDetectedForMotor(ComponentID motor_id);
 
+    bool motionDetectedForReactMotor(ComponentID motor_id);
+
     void setMotorPosition(ComponentID motor_id, float position);
 
     bool atLocationForMotor(ComponentID motor_id, float position);
@@ -119,7 +121,8 @@ class Simulation {
     // ----------- parameters ------------ 
     // float previousPosition_0 = 0.0;
     // float previousPosition_1 = 0.0;
-    float calibrated_position = 0.0;
+    float calibrated_position_0 = 0.0;
+    float calibrated_position_1 = 0.0;
     float incident_position = 10.0;
 
     unsigned long calibration_wait = 1500000UL;
@@ -130,6 +133,7 @@ class Simulation {
 
     //depends how fast we are sampling and how accurate the encoder
     float movement_threshold = 0.005;
+    float response_threshold = 2 *_PI; //greater than 1 revolution
 
     // within 1/20 rotation is considered stable position
     float stablized_threshold = 0.1 * _PI; // 1/20 rotation
