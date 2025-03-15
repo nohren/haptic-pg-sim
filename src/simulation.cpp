@@ -60,6 +60,7 @@ void Simulation::newState() {
       }
   
       simulation_state_stablized = false;
+      motor_0->controller = MotionControlType::angle;
     }
 }    
 
@@ -74,48 +75,47 @@ void Simulation::updateIDLE() {
 }
 
 void Simulation::updateCALIBRATION() {
+    unsigned long currentTime = _micros();
     if (!simulation_state_stablized) {
         motor_0->controller = MotionControlType::velocity;
         move = -3;
     }
     
     if (motionDetectedForMotor(ComponentID::ZERO) && !simulation_state_stablized) { 
-        newStateStartTime = _micros();
+        newStateStartTime = currentTime;
        
-    } else if ((_micros() - newStateStartTime) > calibration_wait) {
+    } else if ((currentTime - newStateStartTime) > calibration_wait) {
         if (!simulation_state_stablized) {
             Serial.println("Calibration for motor 0 stable at position: ");
             motor_0->controller = MotionControlType::angle;
-            move = motor_0->shaftAngle();
+            calibrated_position = motor_0->shaftAngle();
+            move = calibrated_position;
+            simulation_state_stablized = true;
         }
-        simulation_state_stablized = true;
-        current = SimulationState::RANDOM_NOISE;
+
+        //little bit of wait before we get into some normal flying turbulence
+        if ((currentTime - newStateStartTime) > (calibration_wait * 5UL)) {
+            current = SimulationState::RANDOM_NOISE;
+        }  
     }
 }
 
 void Simulation::updateRANDOM_NOISE() {
     unsigned long current_time = _micros();
+    float moveFactor = 2.0;
     if (!simulation_state_stablized) {
         motor_0->controller = MotionControlType::velocity;
-        move = -1;
+        move = 0;
     }
-    // float vel = 0.0;
+    if ((current_time - perLoopStartTime) > random_noise_interval) {
+        simulation_state_stablized = true;
+        perLoopStartTime = current_time;
+        move = last_random_noise_direction * moveFactor;
+        last_random_noise_direction = -last_random_noise_direction;
+    }
+    //sort of like a do-while loop
     if ((current_time - newStateStartTime) > random_noise_wait) {
         current = SimulationState::INCIDENT;
-    } else if((current_time - perLoopStartTime) > random_noise_interval) {
-        //do nothing for now
-
-        perLoopStartTime = current_time;
-        // float new_target = calibrated_position + random_noise_threshold * last_random_noise_direction;
-        // Serial.println("Random noise new target position per second: ");
-        // Serial.println(new_target);
-        // last_random_noise_direction = -last_random_noise_direction;
-        // moveMotor(ComponentID::ZERO, new_target, random_noise_velocity, random_noise_voltage);
-        //moveMotor(ComponentID::ONE, new_target, random_noise_velocity, random_noise_voltage);
-
-        vel = 2 * last_random_noise_direction;
-        last_random_noise_direction = -last_random_noise_direction;
-        Serial.println(vel);
     }
 }
 //incident should be good, just test

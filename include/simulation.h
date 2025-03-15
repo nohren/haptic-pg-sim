@@ -117,14 +117,15 @@ class Simulation {
     bool simulation_state_stablized = false;
 
     // ----------- parameters ------------ 
-    float previousPosition_0 = 0.0;
-    float previousPosition_1 = 0.0;
+    // float previousPosition_0 = 0.0;
+    // float previousPosition_1 = 0.0;
+    float calibrated_position = 0.0;
     float incident_position = 10.0;
 
     unsigned long calibration_wait = 1500000UL;
     unsigned long response_time_wait = 3000000UL;
     unsigned long random_noise_wait = -1UL;
-    unsigned long random_noise_interval = 2000000UL;
+    unsigned long random_noise_interval = 500000UL;
     unsigned long idle_interval = 500000UL;
 
     //depends how fast we are sampling and how accurate the encoder
