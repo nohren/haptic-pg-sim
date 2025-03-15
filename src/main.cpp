@@ -113,7 +113,7 @@ void loop() {
   Serial.print(currentAngle);
   Serial.print("\t");
   Serial.println();
-  motor.move();
+  motor.move(2);
 
   // user communication
   command.run();
