@@ -60,7 +60,6 @@ void Simulation::newState() {
       }
   
       simulation_state_stablized = false;
-      motor_0->controller = MotionControlType::angle;
     }
 }    
 
@@ -115,16 +114,19 @@ void Simulation::updateRANDOM_NOISE() {
     }
     //sort of like a do-while loop
     if ((current_time - newStateStartTime) > random_noise_wait) {
+        motor_0->controller = MotionControlType::angle;
         current = SimulationState::INCIDENT;
     }
 }
-//incident should be good, just test
+
 void Simulation::updateINCIDENT() { 
     // incident_motor = selectRandomMotor();
-    moveMotor(incident_motor, incident_position, incident_velocity, incident_voltage);
-    if (!atLocationForMotor(incident_motor, incident_position)) {
-        // do nothing and wait
-    } else if (!simulation_state_stablized){
+    float incidentPos = calibrated_position + 15.0f;
+    if (!simulation_state_stablized) {
+       move = incidentPos;
+    }
+    //moveMotor(incident_motor, incident_position, incident_velocity, incident_voltage);
+    if (atLocationForMotor(incident_motor, incidentPos)) {
         simulation_state_stablized = true;
         Serial.println("Incident motor has arrived at the incident position: ");
         Serial.println(getMotor(incident_motor)->shaftAngle());

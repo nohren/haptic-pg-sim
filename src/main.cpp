@@ -147,7 +147,7 @@ void loop() {
       break;
     }
     
-    //after simulation functions update necessary variables to uncomplicate other logic
+    //loop logic
     simulation.previous_position_0 = motor_0.shaftAngle();
     //simulation.previous_position_1 = motor_1.shaftAngle();
     motor_0.move(simulation.move);
