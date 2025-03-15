@@ -47,11 +47,14 @@ class Simulation {
     BLDCMotor* motor_0 = nullptr;
     BLDCMotor* motor_1 = nullptr;
 
-    SimulationState current = SimulationState::IDLE;
+    SimulationState current = SimulationState::CALIBRATION; //changed to calibration
     SimulationState previous = SimulationState::INVALID;
 
     float begining_motor_0_position;
     float begining_motor_1_position;
+    float previous_position_0 = 0.0;
+    float previous_position_1 = 0.0;
+    float move = 0.0;
 
     void init(Encoder* cur_encoder_0, Encoder* cur_encoder_1, BLDCDriver* cur_driver_0, BLDCDriver* cur_driver_1, BLDCMotor* cur_motor_0, BLDCMotor* cur_motor_1) {
         encoder_0 = cur_encoder_0;
@@ -98,7 +101,7 @@ class Simulation {
     }
 
     // ------------motor movement --------------
-    bool motionDetectedForMotor(ComponentID motor_id, float previousPos);
+    bool motionDetectedForMotor(ComponentID motor_id);
 
     void setMotorPosition(ComponentID motor_id, float position);
 
@@ -114,16 +117,18 @@ class Simulation {
     bool simulation_state_stablized = false;
 
     // ----------- parameters ------------ 
-    float calibrated_position = 0.0;
+    float previousPosition_0 = 0.0;
+    float previousPosition_1 = 0.0;
     float incident_position = 10.0;
 
-    unsigned long calibration_wait = 10000000UL;
+    unsigned long calibration_wait = 1500000UL;
     unsigned long response_time_wait = 3000000UL;
     unsigned long random_noise_wait = -1UL;
     unsigned long random_noise_interval = 2000000UL;
+    unsigned long idle_interval = 500000UL;
 
-    // more than half a rotation is considered an intentional movement
-    float movement_threshold = 0.5 * _PI; // 1/4 rotation
+    //depends how fast we are sampling and how accurate the encoder
+    float movement_threshold = 0.005;
 
     // within 1/20 rotation is considered stable position
     float stablized_threshold = 0.1 * _PI; // 1/20 rotation

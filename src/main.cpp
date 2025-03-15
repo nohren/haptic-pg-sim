@@ -3,7 +3,7 @@
 
 //------------------------------ENCODER--------------------------
 // Encoder(int encA, int encB , float ppr, int index = 0);
-Encoder encoder_0 = Encoder(2, 3, 2048);
+Encoder encoder_0 = Encoder(3, 2, 2048);
 //Encoder encoder_1 = Encoder(2, 3, 2048);
 
 //------------------------------DIRVER---------------------------
@@ -146,9 +146,11 @@ void loop() {
       // weird simulation state detected
       break;
     }
-
-    // user communication
-    //command.run();*/
+    
+    //after simulation functions update necessary variables to uncomplicate other logic
+    simulation.previous_position_0 = motor_0.shaftAngle();
+    //simulation.previous_position_1 = motor_1.shaftAngle();
+    motor_0.move(simulation.move);
 }
 
 //------------------------------ENCODER HELPER--------------------------
